@@ -1,0 +1,1652 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LLM Study — Flashcards & Quiz</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0d0d0f;
+    --surface: #16161a;
+    --surface2: #1e1e26;
+    --border: #2a2a36;
+    --accent: #7c3aed;
+    --accent-hover: #6d28d9;
+    --accent-soft: rgba(124, 58, 237, 0.15);
+    --green: #10b981;
+    --green-soft: rgba(16, 185, 129, 0.15);
+    --red: #ef4444;
+    --red-soft: rgba(239, 68, 68, 0.15);
+    --text: #e2e8f0;
+    --text-muted: #64748b;
+    --text-dim: #94a3b8;
+    --token-color: #f59e0b;
+    --gen-color: #06b6d4;
+    --ctx-color: #a78bfa;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Header ── */
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    display: flex;
+    align-items: center;
+    gap: 32px;
+    height: 56px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .logo {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: -0.3px;
+    white-space: nowrap;
+  }
+
+  nav {
+    display: flex;
+    gap: 4px;
+  }
+
+  .nav-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.15s;
+  }
+
+  .nav-btn:hover { background: var(--surface2); color: var(--text); }
+  .nav-btn.active { background: var(--accent-soft); color: var(--accent); }
+
+  /* ── Main layout ── */
+  main {
+    flex: 1;
+    max-width: 800px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 32px 24px;
+  }
+
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* ── Topic badges ── */
+  .badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .badge-tokens     { background: rgba(245,158,11,0.15);  color: var(--token-color); }
+  .badge-generation { background: rgba(6,182,212,0.15);   color: var(--gen-color); }
+  .badge-context    { background: rgba(167,139,250,0.15); color: var(--ctx-color); }
+  .badge-system     { background: rgba(52,211,153,0.15);  color: #34d399; }
+  .badge-prompting  { background: rgba(251,146,60,0.15);  color: #fb923c; }
+  .badge-structured { background: rgba(244,114,182,0.15); color: #f472b6; }
+  .badge-eval       { background: rgba(96,165,250,0.15);  color: #60a5fa; }
+
+  /* ══════════════════════════════
+     FLASHCARDS
+  ══════════════════════════════ */
+  .fc-controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .filter-group {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .filter-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    padding: 5px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.15s;
+  }
+  .filter-btn:hover { border-color: var(--accent); color: var(--text); }
+  .filter-btn.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+
+  .fc-progress {
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
+  .fc-progress span { color: var(--text); font-weight: 600; }
+
+  /* Card */
+  .card-scene {
+    perspective: 1000px;
+    height: 340px;
+    cursor: pointer;
+    margin-bottom: 24px;
+    user-select: none;
+  }
+
+  .card-inner {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    transform-style: preserve-3d;
+    transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .card-scene.flipped .card-inner { transform: rotateY(180deg); }
+
+  .card-face {
+    position: absolute;
+    inset: 0;
+    backface-visibility: hidden;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 32px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 16px;
+    text-align: center;
+    transition: border-color 0.2s;
+  }
+
+  .card-face:hover { border-color: #3a3a4a; }
+
+  .card-back {
+    transform: rotateY(180deg);
+    background: var(--surface2);
+    align-items: flex-start;
+    text-align: left;
+    overflow-y: auto;
+  }
+
+  .card-face .badge { margin-bottom: 8px; }
+
+  .card-question {
+    font-size: 20px;
+    font-weight: 600;
+    line-height: 1.4;
+    color: var(--text);
+  }
+
+  .card-hint {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-top: auto;
+  }
+
+  .card-answer {
+    font-size: 15px;
+    line-height: 1.7;
+    color: var(--text-dim);
+  }
+
+  .card-answer code {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    background: rgba(124,58,237,0.12);
+    color: var(--accent);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 13px;
+  }
+
+  .card-count-badge {
+    position: absolute;
+    top: 16px;
+    right: 20px;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+
+  /* Buttons */
+  .fc-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+  }
+
+  .btn {
+    padding: 10px 24px;
+    border-radius: 8px;
+    border: none;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .btn-know {
+    background: var(--green);
+    color: #fff;
+  }
+  .btn-know:hover { background: #059669; }
+
+  .btn-repeat {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+  }
+  .btn-repeat:hover { border-color: var(--accent); color: var(--accent); }
+
+  .btn-flip {
+    background: var(--accent);
+    color: #fff;
+  }
+  .btn-flip:hover { background: var(--accent-hover); }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #fff;
+  }
+  .btn-primary:hover { background: var(--accent-hover); }
+
+  .btn-secondary {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+  }
+  .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+
+  .fc-done {
+    text-align: center;
+    padding: 60px 0;
+  }
+
+  .fc-done h2 { font-size: 28px; margin-bottom: 12px; }
+  .fc-done p  { color: var(--text-muted); margin-bottom: 28px; }
+
+  .progress-bar-wrap {
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-bottom: 24px;
+  }
+
+  .progress-bar {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 2px;
+    transition: width 0.3s;
+  }
+
+  /* ══════════════════════════════
+     QUIZ
+  ══════════════════════════════ */
+  .quiz-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+
+  .quiz-counter { font-size: 13px; color: var(--text-muted); }
+
+  .quiz-question-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px;
+    margin-bottom: 20px;
+  }
+
+  .quiz-topic { margin-bottom: 12px; }
+
+  .quiz-q {
+    font-size: 18px;
+    font-weight: 600;
+    line-height: 1.5;
+  }
+
+  .quiz-options {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 24px;
+  }
+
+  .quiz-option {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 18px;
+    font-size: 14px;
+    color: var(--text-dim);
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.15s;
+    line-height: 1.5;
+  }
+
+  .quiz-option:hover:not(:disabled) {
+    border-color: var(--accent);
+    color: var(--text);
+    background: var(--accent-soft);
+  }
+
+  .quiz-option.correct {
+    border-color: var(--green);
+    background: var(--green-soft);
+    color: var(--green);
+  }
+
+  .quiz-option.wrong {
+    border-color: var(--red);
+    background: var(--red-soft);
+    color: var(--red);
+  }
+
+  .quiz-option:disabled { cursor: default; }
+
+  .quiz-feedback {
+    min-height: 24px;
+    font-size: 14px;
+    margin-bottom: 20px;
+    font-weight: 500;
+  }
+
+  .quiz-feedback.correct { color: var(--green); }
+  .quiz-feedback.wrong   { color: var(--red); }
+
+  .quiz-nav {
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  /* Results */
+  .quiz-results {
+    text-align: center;
+    padding: 40px 0 20px;
+  }
+
+  .score-ring {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background: conic-gradient(var(--accent) var(--pct), var(--border) 0);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 24px;
+    position: relative;
+  }
+
+  .score-ring::before {
+    content: '';
+    position: absolute;
+    inset: 10px;
+    background: var(--bg);
+    border-radius: 50%;
+  }
+
+  .score-number {
+    position: relative;
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--text);
+    z-index: 1;
+  }
+
+  .quiz-results h2 { font-size: 22px; margin-bottom: 8px; }
+  .quiz-results p  { color: var(--text-muted); margin-bottom: 32px; }
+
+  .mistakes-list {
+    text-align: left;
+    margin-bottom: 28px;
+  }
+
+  .mistakes-list h3 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 12px;
+  }
+
+  .mistake-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--red);
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-bottom: 10px;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  .mistake-item strong { display: block; color: var(--text); margin-bottom: 4px; }
+  .mistake-item .correct-ans { color: var(--green); }
+
+  .quiz-results-actions { display: flex; gap: 12px; justify-content: center; }
+
+  /* ══════════════════════════════
+     CHEATSHEET
+  ══════════════════════════════ */
+  .cheat-section { margin-bottom: 32px; }
+
+  .cheat-section h2 {
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .cheat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 12px;
+  }
+
+  .cheat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+  }
+
+  .cheat-card .label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+  }
+
+  .cheat-card .value {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text);
+    font-family: 'SF Mono', 'Fira Code', monospace;
+  }
+
+  .cheat-card .sub {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 4px;
+  }
+
+  .cheat-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+
+  .cheat-table th {
+    text-align: left;
+    padding: 8px 12px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-weight: 600;
+    font-size: 12px;
+    text-transform: uppercase;
+  }
+
+  .cheat-table td {
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    background: var(--surface);
+    line-height: 1.5;
+  }
+
+  .cheat-table td:first-child {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 13px;
+    color: var(--accent);
+    white-space: nowrap;
+  }
+
+  .divider {
+    height: 1px;
+    background: var(--border);
+    margin: 32px 0;
+  }
+
+  /* ── Keyboard hint ── */
+  .kbd {
+    display: inline-block;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 11px;
+    font-family: monospace;
+    color: var(--text-muted);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">⬡ LLM Study</div>
+  <nav>
+    <button class="nav-btn active" onclick="showView('flashcards')">Flashcards</button>
+    <button class="nav-btn" onclick="showView('quiz')">Quiz</button>
+    <button class="nav-btn" onclick="showView('cheatsheet')">Cheatsheet</button>
+  </nav>
+</header>
+
+<main>
+
+  <!-- ══ FLASHCARDS ══ -->
+  <div id="view-flashcards" class="view active">
+    <div class="fc-controls">
+      <div class="filter-group">
+        <button class="filter-btn active" onclick="setFilter('all', this)">Всі</button>
+        <button class="filter-btn" onclick="setFilter('tokens', this)">Tokens</button>
+        <button class="filter-btn" onclick="setFilter('generation', this)">Generation</button>
+        <button class="filter-btn" onclick="setFilter('context', this)">Context Window</button>
+        <button class="filter-btn" onclick="setFilter('system', this)">System Prompt</button>
+        <button class="filter-btn" onclick="setFilter('prompting', this)">Prompting</button>
+        <button class="filter-btn" onclick="setFilter('structured', this)">Structured Output</button>
+        <button class="filter-btn" onclick="setFilter('eval', this)">Prompt Eval</button>
+      </div>
+      <div class="fc-progress">
+        Залишилось: <span id="fc-remaining">0</span> / <span id="fc-total">0</span>
+      </div>
+    </div>
+
+    <div class="progress-bar-wrap">
+      <div class="progress-bar" id="fc-bar" style="width:0%"></div>
+    </div>
+
+    <div class="card-scene" id="card-scene" onclick="flipCard()">
+      <div class="card-inner" id="card-inner">
+        <div class="card-face card-front" id="card-front">
+          <div class="badge" id="card-badge"></div>
+          <div class="card-question" id="card-q"></div>
+          <div class="card-hint">клік або <span class="kbd">пробіл</span> щоб перевернути</div>
+          <span class="card-count-badge" id="card-idx"></span>
+        </div>
+        <div class="card-face card-back" id="card-back">
+          <div class="badge" id="card-badge-back"></div>
+          <div class="card-answer" id="card-a"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="fc-actions" id="fc-actions" style="display:none">
+      <button class="btn btn-repeat" onclick="markCard(false)">↩ Повторити</button>
+      <button class="btn btn-know"   onclick="markCard(true)">✓ Знаю</button>
+    </div>
+    <div class="fc-actions" id="fc-flip-btn">
+      <button class="btn btn-flip" onclick="flipCard()">Перевернути</button>
+    </div>
+
+    <div class="fc-done" id="fc-done" style="display:none">
+      <h2>🎉 Молодець!</h2>
+      <p>Всі картки пройдено. Час для quiz?</p>
+      <div style="display:flex;gap:12px;justify-content:center">
+        <button class="btn btn-secondary" onclick="restartCards()">Повторити ще раз</button>
+        <button class="btn btn-primary" onclick="showView('quiz')">Перейти до Quiz →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ QUIZ ══ -->
+  <div id="view-quiz" class="view">
+    <div id="quiz-question-view">
+      <div class="quiz-header">
+        <div class="quiz-counter">Питання <span id="q-current">1</span> / <span id="q-total">15</span></div>
+        <div class="fc-progress">Правильних: <span id="q-score">0</span></div>
+      </div>
+
+      <div class="progress-bar-wrap">
+        <div class="progress-bar" id="quiz-bar" style="width:0%"></div>
+      </div>
+
+      <div class="quiz-question-box">
+        <div class="quiz-topic"><span class="badge" id="q-badge"></span></div>
+        <div class="quiz-q" id="q-text"></div>
+      </div>
+
+      <div class="quiz-options" id="q-options"></div>
+      <div class="quiz-feedback" id="q-feedback"></div>
+
+      <div class="quiz-nav">
+        <button class="btn btn-primary" id="q-next" onclick="nextQuestion()" style="display:none">Далі →</button>
+      </div>
+    </div>
+
+    <div id="quiz-results-view" style="display:none">
+      <div class="quiz-results">
+        <div class="score-ring" id="score-ring">
+          <span class="score-number" id="score-pct"></span>
+        </div>
+        <h2 id="results-title"></h2>
+        <p id="results-sub"></p>
+
+        <div class="mistakes-list" id="mistakes-list"></div>
+
+        <div class="quiz-results-actions">
+          <button class="btn btn-secondary" onclick="restartQuiz()">Пройти ще раз</button>
+          <button class="btn btn-primary" onclick="showView('flashcards')">← До Flashcards</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ CHEATSHEET ══ -->
+  <div id="view-cheatsheet" class="view">
+
+    <div class="cheat-section">
+      <h2><span class="badge badge-tokens">Tokens</span> Ключові числа</h2>
+      <div class="cheat-grid">
+        <div class="cheat-card">
+          <div class="label">1 токен (англ.)</div>
+          <div class="value">≈ 4 символи</div>
+          <div class="sub">≈ 0.75 слова</div>
+        </div>
+        <div class="cheat-card">
+          <div class="label">1000 токенів</div>
+          <div class="value">≈ 750 слів</div>
+          <div class="sub">≈ 1.5 сторінки A4</div>
+        </div>
+        <div class="cheat-card">
+          <div class="label">Українська vs Англ.</div>
+          <div class="value">2–3×</div>
+          <div class="sub">більше токенів на те саме слово</div>
+        </div>
+        <div class="cheat-card">
+          <div class="label">Output vs Input ціна</div>
+          <div class="value">3–5×</div>
+          <div class="sub">дорожчий output (авторегресія)</div>
+        </div>
+        <div class="cheat-card">
+          <div class="label">Словник токенів</div>
+          <div class="value">~100k</div>
+          <div class="sub">унікальних токенів у Claude</div>
+        </div>
+        <div class="cheat-card">
+          <div class="label">Cache read ціна</div>
+          <div class="value">~10%</div>
+          <div class="sub">від звичайного input</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="cheat-section">
+      <h2><span class="badge badge-generation">Generation</span> Temperature</h2>
+      <table class="cheat-table">
+        <thead>
+          <tr><th>Значення</th><th>Ефект</th><th>Коли використовувати</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>0</td><td>Greedy — завжди найймовірніший токен</td><td>Детермінована відповідь, тести</td></tr>
+          <tr><td>0 – 0.3</td><td>Дуже впевнено, мало варіацій</td><td>Код, SQL, JSON, факти</td></tr>
+          <tr><td>0.5 – 0.8</td><td>Баланс зв'язності і природності</td><td>Чат, пояснення</td></tr>
+          <tr><td>0.9 – 1.2</td><td>Більше варіативності</td><td>Копірайтинг, ідеї</td></tr>
+          <tr><td>> 1.5</td><td>Некогерентний текст</td><td>Не рекомендується</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="cheat-section" style="margin-top:20px">
+      <h2><span class="badge badge-generation">Generation</span> stop_reason</h2>
+      <table class="cheat-table">
+        <thead>
+          <tr><th>Значення</th><th>Що означає</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>"end_turn"</td><td>Модель сама завершила відповідь</td></tr>
+          <tr><td>"max_tokens"</td><td>Відповідь обрізана — треба збільшити max_tokens</td></tr>
+          <tr><td>"stop_sequence"</td><td>Спрацював один зі stop_sequences</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="cheat-section">
+      <h2><span class="badge badge-context">Context</span> Ключові числа</h2>
+      <div class="cheat-grid">
+        <div class="cheat-card">
+          <div class="label">Context Window (Claude)</div>
+          <div class="value">200k</div>
+          <div class="sub">токенів = ~500 сторінок A4</div>
+        </div>
+        <div class="cheat-card">
+          <div class="label">Max Output — Sonnet</div>
+          <div class="value">64k</div>
+          <div class="sub">токенів на одну відповідь</div>
+        </div>
+        <div class="cheat-card">
+          <div class="label">RAG chunk розмір</div>
+          <div class="value">512–2k</div>
+          <div class="sub">токенів на чанк</div>
+        </div>
+        <div class="cheat-card">
+          <div class="label">Chunk overlap</div>
+          <div class="value">10–20%</div>
+          <div class="sub">від розміру чанку</div>
+        </div>
+        <div class="cheat-card">
+          <div class="label">History — зберігати</div>
+          <div class="value">10–20</div>
+          <div class="sub">останніх повідомлень або стискати</div>
+        </div>
+        <div class="cheat-card">
+          <div class="label">Lost in the middle</div>
+          <div class="value">середина</div>
+          <div class="sub">найгірша якість attention</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="cheat-section" style="margin-top:20px">
+      <h2><span class="badge badge-context">Context</span> Стратегії для великих документів</h2>
+      <table class="cheat-table">
+        <thead>
+          <tr><th>Стратегія</th><th>Коли</th><th>Мінус</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Весь контекст</td><td>Одноразово, бюджет не критичний</td><td>Дорого + lost in the middle</td></tr>
+          <tr><td>RAG</td><td>Продакшн, повторювані запити</td><td>Потрібна vector DB</td></tr>
+          <tr><td>Summarization</td><td>Загальний огляд документа</td><td>Деталі губляться</td></tr>
+          <tr><td>Map-Reduce</td><td>Підрахунок, класифікація по чанках</td><td>Складніша реалізація</td></tr>
+          <tr><td>Sliding Window</td><td>Послідовний аналіз з контекстом</td><td>Токени дублюються</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="cheat-section">
+      <h2><span class="badge badge-system">System Prompt</span> Розподіл контенту</h2>
+      <table class="cheat-table">
+        <thead>
+          <tr><th>Що</th><th>Куди</th><th>Чому</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Роль / persona</td><td>system</td><td>Однаково для всіх запитів</td></tr>
+          <tr><td>Формат відповіді</td><td>system</td><td>Незмінне правило</td></tr>
+          <tr><td>Guardrails / scope</td><td>system</td><td>Постійні обмеження</td></tr>
+          <tr><td>Конкретне питання</td><td>user</td><td>Унікальне для кожного turn</td></tr>
+          <tr><td>Документ для аналізу</td><td>user</td><td>Змінюється від запиту до запиту</td></tr>
+          <tr><td>API ключі / паролі</td><td>ніколи</td><td>Модель може їх розкрити</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="cheat-section">
+      <h2><span class="badge badge-prompting">Prompting</span> Техніки та коли застосовувати</h2>
+      <table class="cheat-table">
+        <thead>
+          <tr><th>Техніка</th><th>Тригер</th><th>Оптимум</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Zero-shot</td><td>Завжди починай з нього</td><td>Прості, стандартні задачі</td></tr>
+          <tr><td>Few-shot</td><td>Неправильний формат або стабільні помилки</td><td>3–5 прикладів</td></tr>
+          <tr><td>Chain of Thought</td><td>Багатокрокова логіка / математика</td><td>"Think step by step"</td></tr>
+          <tr><td>Role prompting</td><td>Потрібен доменний стиль або тон</td><td>Конкретна роль > загальна</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="cheat-section">
+      <h2><span class="badge badge-structured">Structured Output</span> Рівні гарантії JSON</h2>
+      <div class="cheat-grid">
+        <div class="cheat-card">
+          <div class="label">Рівень 1 (слабко)</div>
+          <div class="value" style="font-size:13px">system prompt</div>
+          <div class="sub">"return JSON only"</div>
+        </div>
+        <div class="cheat-card">
+          <div class="label">Рівень 2</div>
+          <div class="value" style="font-size:13px">+ few-shot</div>
+          <div class="sub">приклад правильного виводу</div>
+        </div>
+        <div class="cheat-card">
+          <div class="label">Рівень 3 (надійно)</div>
+          <div class="value" style="font-size:13px">+ prefill</div>
+          <div class="sub">assistant content: "{"</div>
+        </div>
+        <div class="cheat-card">
+          <div class="label">Рівень 4</div>
+          <div class="value" style="font-size:13px">+ retry</div>
+          <div class="sub">JSON.parse + повторний запит</div>
+        </div>
+        <div class="cheat-card">
+          <div class="label">Рівень 5 (max)</div>
+          <div class="value" style="font-size:13px">tool use</div>
+          <div class="sub">JSON Schema на рівні API</div>
+        </div>
+        <div class="cheat-card">
+          <div class="label">XML краще для</div>
+          <div class="value" style="font-size:13px">промпт</div>
+          <div class="sub">розділення блоків контенту</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="cheat-section">
+      <h2><span class="badge badge-eval">Prompt Eval</span> Системний підхід</h2>
+      <table class="cheat-table">
+        <thead>
+          <tr><th>Крок</th><th>Дія</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>1. Define</td><td>Що таке "правильна відповідь" для цієї задачі</td></tr>
+          <tr><td>2. Collect</td><td>Тест-сет: 20+ прикладів (100+ для надійності)</td></tr>
+          <tr><td>3. Baseline</td><td>Запусти поточний промпт — це точка відліку</td></tr>
+          <tr><td>4. Iterate</td><td>Одна зміна за раз → запускай на повному тест-сеті</td></tr>
+          <tr><td>5. Compare</td><td>Accuracy / consistency / cost / format compliance</td></tr>
+          <tr><td>6. Deploy</td><td>Тільки якщо новий кращий за baseline за головними метриками</td></tr>
+          <tr><td>7. Monitor</td><td>Розподіл даних змінюється — потрібен ongoing eval</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</main>
+
+<script>
+// ══════════════════════════════════════════════════════
+// DATA
+// ══════════════════════════════════════════════════════
+
+const CARDS = [
+  // TOKENS
+  {
+    topic: 'tokens',
+    q: 'Що таке токен в контексті LLM?',
+    a: 'Найменша одиниця тексту, з якою працює модель. Це не символ і не слово, а підрядок, визначений алгоритмом BPE під час навчання токенайзера. Модель оперує числовими ID токенів, не символами.'
+  },
+  {
+    topic: 'tokens',
+    q: 'Як працює BPE (Byte Pair Encoding)?',
+    a: 'Алгоритм починає з окремих байтів і ітеративно об\'єднує найчастіші пари символів у нові токени. Це робиться на великому корпусі тексту до досягнення потрібного розміру словника (~100k). Часті слова — цілі токени, рідкісні — розбиваються на частини.'
+  },
+  {
+    topic: 'tokens',
+    q: 'Чому Ukrainian/Russian текст коштує більше токенів?',
+    a: 'Токенайзер навчений переважно на англійських даних. Кириличні слова рідше у словнику → розбиваються на більше частин. Кирилиця в UTF-8 = 2 байти на символ → при fallback кожна буква стає окремим токеном. Результат: 2–3x більше токенів.'
+  },
+  {
+    topic: 'tokens',
+    q: 'Яка різниця між input і output токенами з точки зору ціни і чому?',
+    a: 'Output токени дорожчі (~3–5x). Input обробляється паралельно через attention. Output генерується авторегресивно — один токен за раз, кожен потребує окремого forward pass через усю модель.'
+  },
+  {
+    topic: 'tokens',
+    q: 'Чому prompt caching вимагає byte-identical тексту?',
+    a: 'Кеш зберігається як точна послідовність токенів. Навіть один зайвий пробіл = інший набір токенів = інший ключ кешу → кеш-міс. Текст має бути побайтово ідентичним між запитами. Мінімум 1024 токени для кешування.'
+  },
+  {
+    topic: 'tokens',
+    q: 'Навіщо countTokens() якщо можна просто надіслати запит?',
+    a: 'Щоб перевірити чи не перевищуємо context window перед дорогим запитом і оцінити вартість заздалегідь. countTokens() — окремий дешевий API-запит без реальної генерації.'
+  },
+  {
+    topic: 'tokens',
+    q: 'Що означає що stop sequences перевіряються "на рівні токенів"?',
+    a: 'Після кожного згенерованого токена Claude декодує текст і перевіряє чи утворює він stop sequence. Якщо \\n є всередині більшого токену — зупинки не буде до повного декодування. Зупинка гарантована, але може бути на токен пізніше ніж очікуєш.'
+  },
+  // GENERATION
+  {
+    topic: 'generation',
+    q: 'Як LLM генерує текст?',
+    a: 'Авторегресивно — один токен за раз. На кожному кроці модель дивиться на весь попередній контекст, рахує logits для кожного токена словника, застосовує softmax для отримання розподілу ймовірностей, і семплує наступний токен. Потім цей токен додається до контексту, і процес повторюється до stop_reason.'
+  },
+  {
+    topic: 'generation',
+    q: 'Що таке temperature і коли її зменшувати?',
+    a: 'Temperature ділить logits перед softmax. При T < 1 розподіл стає гострішим — модель впевненіша. При T > 1 — плоскішим, більше варіативності. Для коду, фактів, JSON — низька (0–0.3). Для творчих задач — висока (0.9–1.2).'
+  },
+  {
+    topic: 'generation',
+    q: 'Чим top-p відрізняється від temperature?',
+    a: 'Temperature трансформує весь розподіл ймовірностей. Top-p обрізає "хвіст" — залишає мінімальний набір токенів з сумарною ймовірністю ≥ p. Вони застосовуються разом, але змінювати обидва одночасно зазвичай не потрібно.'
+  },
+  {
+    topic: 'generation',
+    q: 'Чому LLM галюцинує?',
+    a: 'Модель не зберігає факти — передбачає статистично правдоподібний наступний токен. Архітектурно немає варіанту "я не знаю" — є лише розподіл ймовірностей. Якщо правильна відповідь недостатньо представлена в тренувальних даних, модель впевнено генерує неправильну.'
+  },
+  {
+    topic: 'generation',
+    q: 'Що таке stop sequences і як вони впливають на генерацію?',
+    a: 'Рядки, при появі яких генерація негайно зупиняється. Після кожного токена Claude перевіряє: чи утворює поточний текст один зі stop sequences. Якщо так — stop_reason = "stop_sequence", рядок не включається у відповідь.'
+  },
+  {
+    topic: 'generation',
+    q: 'Що означає stop_reason: "max_tokens"?',
+    a: 'Модель не завершила думку — була примусово зупинена через досягнення ліміту max_tokens. Відповідь може бути обрізана посередині речення. Це сигнал збільшити max_tokens або скоротити input.'
+  },
+  {
+    topic: 'generation',
+    q: 'Чому output токени дорожчі за input?',
+    a: 'Input обробляється паралельно — attention дивиться на всі токени одночасно. Output генерується авторегресивно: кожен токен потребує окремого forward pass через усю модель. Це фундаментальна асиметрія архітектури трансформера.'
+  },
+  // CONTEXT
+  {
+    topic: 'context',
+    q: 'Що таке context window і що в нього входить?',
+    a: 'Максимальна кількість токенів за один запит. Включає все: system prompt, conversation history, поточне повідомлення і відповідь моделі. У Claude — 200k токенів. Якщо перевищити — API поверне помилку 400.'
+  },
+  {
+    topic: 'context',
+    q: 'Що таке "lost in the middle" і як це враховувати?',
+    a: 'Моделі гірше використовують інформацію з середини довгого контексту. Attention краще "тримає" початок і кінець. Тому важливі інструкції — в system prompt або наприкінці user message, не посередині великого документа.'
+  },
+  {
+    topic: 'context',
+    q: 'Як обробити документ більший за context window?',
+    a: 'Залежить від задачі. RAG — для точних питань у продакшені (дешево, масштабується). Summarization chain — для загального огляду. Map-reduce — для паралельної обробки. Увесь контекст — лише для одноразового аналізу з достатнім бюджетом.'
+  },
+  {
+    topic: 'context',
+    q: 'Чому history у multi-turn діалозі може стати проблемою?',
+    a: 'Кожне повідомлення додає токени до контексту. Після багатьох turns сума може перевищити context window. Треба або обрізати старі повідомлення, або стискати їх у summary, або явно керувати довжиною history.'
+  },
+  {
+    topic: 'context',
+    q: 'Як output резервує місце в context window?',
+    a: 'max_tokens резервується з загального контексту. Якщо context window = 200k і input = 190k токенів — для output залишилось лише 10k, навіть якщо max_tokens: 64000.'
+  },
+  {
+    topic: 'context',
+    q: 'Навіщо рахувати токени через countTokens() якщо є великий ліміт 200k?',
+    a: 'Щоб уникнути помилки 400 під час реального запиту. Також для оцінки вартості і для динамічного обрізання контенту (RAG chunks, conversation history) до безпечного розміру перед відправкою.'
+  },
+  // SYSTEM PROMPT
+  {
+    topic: 'system',
+    q: 'What\'s the difference between system prompt and user message?',
+    a: 'System prompt is set by the developer — defines model behavior, persona, rules. It\'s constant across all turns. User message is per-turn input from the end user. In Anthropic API, `system` is a separate top-level field, not inside messages[].'
+  },
+  {
+    topic: 'system',
+    q: 'Що писати в system prompt?',
+    a: 'Роль і persona, scope обмеження (що робить і НЕ робить модель), формат відповіді, tone, статичний контекст між запитами, guardrails. Правило: "Це однаково для всіх запитів?" → system.'
+  },
+  {
+    topic: 'system',
+    q: 'Чи можна зберігати API ключі або паролі в system prompt?',
+    a: 'Ні. Модель може розкрити вміст system prompt якщо її прямо попросити. System prompt — інструкція, не сховище. API ключі, паролі, PII — ніколи в system prompt.'
+  },
+  {
+    topic: 'system',
+    q: 'Як зменшити вартість великого system prompt?',
+    a: 'Prompt caching: додати `cache_control: { type: "ephemeral" }` до блоку system. При byte-identical system prompt Claude читає з кешу за ~10% від звичайної ціни. Мінімум 1024 токени для кешування.'
+  },
+  {
+    topic: 'system',
+    q: 'Що таке "system prompt injection" і як захиститись?',
+    a: 'Коли user input потрапляє в system prompt без санітизації — юзер може перезаписати правила через "Ignore previous instructions...". Захист: ніколи не interpolate user input у system prompt, завжди розділяй system і user контент.'
+  },
+  // PROMPTING
+  {
+    topic: 'prompting',
+    q: 'Чим zero-shot відрізняється від few-shot?',
+    a: 'Zero-shot — лише інструкція, модель спирається на тренування. Few-shot — 2–5 прикладів input→output перед реальною задачею, модель вчить патерн. Few-shot краще коли формат нестандартний або zero-shot стабільно помиляється.'
+  },
+  {
+    topic: 'prompting',
+    q: 'Що таке Chain of Thought і коли він найбільше допомагає?',
+    a: 'Просимо модель думати покроково ("Think step by step") перед відповіддю. Найефективніший для багатокрокової математики і логіки — підвищує точність на 30–50%. Для простих фактів або перекладу — мінімальний ефект.'
+  },
+  {
+    topic: 'prompting',
+    q: 'Коли few-shot краще за zero-shot?',
+    a: 'Коли формат виводу нестандартний, коли zero-shot стабільно помиляється одним типом помилки, або коли задача потребує доменної термінології. Якщо zero-shot вже дає правильний результат — few-shot не потрібен, коштує більше токенів.'
+  },
+  {
+    topic: 'prompting',
+    q: 'Який порядок спроб при налагодженні промпту?',
+    a: '1. Zero-shot → 2. Few-shot (якщо формат неправильний) → 3. CoT (якщо задача багатокрокова) → 4. Role (якщо потрібен стиль/домен) → 5. Комбінувати. Починай з найпростішого.'
+  },
+  {
+    topic: 'prompting',
+    q: 'Як правильно вибирати few-shot приклади?',
+    a: 'Охоплюй різні випадки, включай edge cases, балансуй класи для класифікації. Оптимум: 3–5 прикладів. Якість важливіша за кількість. Останній приклад впливає найбільше на стиль виводу.'
+  },
+  {
+    topic: 'prompting',
+    q: 'Що підходить для role prompting: загальна чи конкретна роль?',
+    a: 'Конкретна > загальна. "Senior security engineer with 10 years in web security" → краще ніж "expert". Конкретна роль активує більш точний "режим" знань і стилю. Надто театральна роль результатів не покращує.'
+  },
+  // STRUCTURED OUTPUT
+  {
+    topic: 'structured',
+    q: 'Як гарантувати JSON вивід від Claude? Назви три шари.',
+    a: '1. System prompt зі схемою + "raw JSON only, no markdown". 2. Assistant prefill починаючи з `{` — модель не може почати інакше. 3. Retry loop з JSON.parse валідацією. Для критичних пайплайнів — tool use з JSON Schema.'
+  },
+  {
+    topic: 'structured',
+    q: 'Що таке assistant prefill і навіщо він потрібен?',
+    a: 'Початок відповіді моделі що задаєш сам: `{ role: "assistant", content: "{" }`. Модель фізично продовжує звідси — не може почати з іншого символу. Найнадійніший спосіб уникнути markdown обгортки навколо JSON.'
+  },
+  {
+    topic: 'structured',
+    q: 'Чому tool use надійніший за JSON у тексті?',
+    a: 'JSON Schema валідується на рівні API — неправильний тип або відсутнє required поле неможливі архітектурно. `enum` обмежує значення, `required` гарантує поля. `input` вже є JS-об\'єктом — не треба парсити текст.'
+  },
+  {
+    topic: 'structured',
+    q: 'Коли XML теги кращі за JSON?',
+    a: 'Для розділення блоків у промпті (`<document>`, `<task>`, `<context>`), для виводу з довільним текстом (немає проблем з escaping), коли потрібно кілька незалежних блоків. JSON краще для виводу що іде напряму в JS/TS код.'
+  },
+  {
+    topic: 'structured',
+    q: 'Чому не можна поєднувати CoT і JSON prefill в одному запиті?',
+    a: 'CoT змушує модель генерувати текст-роздуми перед відповіддю. Prefill `{` вже стартує JSON. Конфлікт: модель хоче думати вголос, але старт вже визначений. Рішення: або CoT без prefill, або prefill без CoT.'
+  },
+  // PROMPT EVAL
+  {
+    topic: 'eval',
+    q: 'Як зрозуміти що новий промпт кращий за старий?',
+    a: 'Тільки через вимірювання. Визначити "правильну відповідь", зібрати тест-сет (20–100 прикладів), запустити обидва промпти на повному тест-сеті, порівняти метрики. Новий кращий лише якщо виграє за метриками — не на одному прикладі що налагоджував.'
+  },
+  {
+    topic: 'eval',
+    q: 'Які основні метрики для оцінки промпту?',
+    a: 'Accuracy (відсоток правильних відповідей), consistency (стабільність при повторних запусках), cost (токени на масштабі = гроші), format compliance (відсоток валідного формату). Для суб\'єктивних задач — LLM-as-judge або human eval.'
+  },
+  {
+    topic: 'eval',
+    q: 'Що таке LLM-as-Judge і яка його слабкість?',
+    a: 'Окрема модель оцінює якість відповідей — для суб\'єктивних задач без однозначної відповіді. Слабкість: positional bias — перша відповідь частіше "виграє". Рішення: запускати з обома порядками (A vs B і B vs A), брати більшість.'
+  },
+  {
+    topic: 'eval',
+    q: 'Що таке "overfitting промпту" і як уникнути?',
+    a: 'Промпт оптимізований під конкретні тест-кейси перестає generalize на нові дані. Уникнення: тримай holdout set (20–30% тест-сету) що не дивишся під час ітерацій, використовуй лише для фінальної оцінки переможця.'
+  },
+  {
+    topic: 'eval',
+    q: 'Чим офлайн eval відрізняється від онлайн A/B тестування?',
+    a: 'Офлайн — на заготовленому тест-сеті до деплою, без ризику для реальних юзерів, швидко. Онлайн — частина реального трафіку іде на новий промпт, більш репрезентативний. Правильний порядок: спочатку офлайн, потім онлайн.'
+  },
+];
+
+const QUIZ = [
+  {
+    topic: 'tokens',
+    q: '1 токен ≈ скільки символів (англійська)?',
+    options: ['2 символи', '4 символи', '8 символів', '16 символів'],
+    correct: 1
+  },
+  {
+    topic: 'tokens',
+    q: 'Що таке Byte Pair Encoding (BPE)?',
+    options: [
+      'Алгоритм стиснення ZIP-файлів',
+      'Алгоритм навчання токенайзера шляхом об\'єднання найчастіших пар символів',
+      'Метод кодування UTF-8',
+      'Тип нейронної мережі для класифікації'
+    ],
+    correct: 1
+  },
+  {
+    topic: 'tokens',
+    q: 'Чому Ukrainian текст коштує більше токенів ніж English?',
+    options: [
+      'API дорожчий для слов\'янських мов за тарифом',
+      'Claude погано знає українську мову',
+      'Кириличні слова рідше у словнику токенів → розбиваються на більше частин',
+      'Це міф, ціна однакова для всіх мов'
+    ],
+    correct: 2
+  },
+  {
+    topic: 'tokens',
+    q: 'Input vs Output — ціновий коефіцієнт output токенів?',
+    options: ['Output = input (однаково)', 'Output ~1.5x дорожчий', 'Output ~3–5x дорожчий', 'Output ~10x дорожчий'],
+    correct: 2
+  },
+  {
+    topic: 'tokens',
+    q: 'Умова для спрацювання prompt caching?',
+    options: [
+      'Однаковий user message у двох запитах',
+      'Byte-identical текст блоку + мінімум 1024 токени',
+      'Той самий API ключ і temperature = 0',
+      'Запити з інтервалом менше 1 хвилини'
+    ],
+    correct: 1
+  },
+  {
+    topic: 'generation',
+    q: 'Temperature = 0 — що це означає?',
+    options: [
+      'Модель відмовляється відповідати',
+      'Greedy decoding — завжди обирається найімовірніший токен',
+      'Максимальна творчість і варіативність',
+      'Помилка — значення має бути > 0'
+    ],
+    correct: 1
+  },
+  {
+    topic: 'generation',
+    q: 'Яке значення temperature рекомендується для генерації коду?',
+    options: ['0 – 0.3', '0.5 – 0.8', '0.9 – 1.2', '1.5 – 2.0'],
+    correct: 0
+  },
+  {
+    topic: 'generation',
+    q: 'Що таке top-p = 0.9?',
+    options: [
+      'Обирати лише 9 найкращих токенів',
+      'Обирати з мінімального набору токенів з сумарною ймовірністю ≥ 90%',
+      'Temperature = 0.9 (синонім)',
+      '90% шанс що модель дасть відповідь'
+    ],
+    correct: 1
+  },
+  {
+    topic: 'generation',
+    q: 'Що означає stop_reason: "max_tokens"?',
+    options: [
+      'Модель сама вирішила зупинитись — відповідь повна',
+      'Відповідь примусово обрізана — треба збільшити max_tokens або скоротити input',
+      'Спрацював один зі stop_sequences',
+      'Помилка мережі або timeout'
+    ],
+    correct: 1
+  },
+  {
+    topic: 'generation',
+    q: 'Основна причина чому LLM галюцинує?',
+    options: [
+      'Баг у коді моделі',
+      'Занадто висока temperature під час запиту',
+      'Передбачає статистично правдоподібний токен, не перевірений факт',
+      'Модель не має доступу до інтернету'
+    ],
+    correct: 2
+  },
+  {
+    topic: 'context',
+    q: 'Що входить у context window?',
+    options: [
+      'Лише поточний user message',
+      'System prompt + поточний user message (без history)',
+      'System prompt + history + user message',
+      'System prompt + history + user message + відповідь моделі'
+    ],
+    correct: 3
+  },
+  {
+    topic: 'context',
+    q: 'Context window 200k токенів — це приблизно скільки сторінок A4?',
+    options: ['~50 сторінок', '~150 сторінок', '~500 сторінок', '~2000 сторінок'],
+    correct: 2
+  },
+  {
+    topic: 'context',
+    q: '"Lost in the middle" — що це?',
+    options: [
+      'Модель губить перші повідомлення history',
+      'Моделі гірше витягують інформацію з середини довгого контексту',
+      'Помилка при streaming великих відповідей',
+      'Проблема з токенізацією кирилиці в середині слова'
+    ],
+    correct: 1
+  },
+  {
+    topic: 'context',
+    q: 'Яка стратегія найкраща для продакшн-системи з мільйонами документів?',
+    options: [
+      'Засунути всі документи в один контекст',
+      'RAG з vector database',
+      'Summarization chain',
+      'Sliding window з великим overlap'
+    ],
+    correct: 1
+  },
+  {
+    topic: 'context',
+    q: 'Input = 190k токенів, context window = 200k, max_tokens = 64000. Скільки токенів отримаємо у відповіді?',
+    options: ['64000 токенів', '10000 токенів', '0 — помилка 400', '200000 токенів'],
+    correct: 1
+  },
+  // SYSTEM PROMPT
+  {
+    topic: 'system',
+    q: 'Де в Anthropic API знаходиться system prompt?',
+    options: [
+      'Перший елемент масиву messages[] з role: "system"',
+      'Окреме поле `system` на верхньому рівні запиту',
+      'У заголовку HTTP запиту X-System-Prompt',
+      'В полі metadata'
+    ],
+    correct: 1
+  },
+  {
+    topic: 'system',
+    q: 'Що НЕ слід зберігати в system prompt?',
+    options: [
+      'Роль і persona моделі',
+      'Формат відповіді (JSON schema)',
+      'API ключі, паролі, PII',
+      'Guardrails і scope обмеження'
+    ],
+    correct: 2
+  },
+  {
+    topic: 'system',
+    q: '"Це однаково для всіх запитів?" — куди воно йде?',
+    options: ['User message', 'System prompt', 'Assistant prefill', 'Messages history'],
+    correct: 1
+  },
+  // PROMPTING
+  {
+    topic: 'prompting',
+    q: 'Few-shot — оптимальна кількість прикладів?',
+    options: ['1 приклад', '3–5 прикладів', '10–20 прикладів', 'Чим більше — тим краще'],
+    correct: 1
+  },
+  {
+    topic: 'prompting',
+    q: 'Для якої задачі Chain of Thought дає найбільший ефект?',
+    options: [
+      'Переклад тексту',
+      'Багатокрокова математика і логічні міркування',
+      'Класифікація тональності з 2 класами',
+      'Генерація короткого заголовку'
+    ],
+    correct: 1
+  },
+  {
+    topic: 'prompting',
+    q: 'Чому треба змінювати одну річ у промпті за раз?',
+    options: [
+      'API має ліміт на розмір промпту',
+      'Щоб розуміти яка саме зміна дала покращення',
+      'Модель плутається від довгих промптів',
+      'Це збільшує latency'
+    ],
+    correct: 1
+  },
+  // STRUCTURED OUTPUT
+  {
+    topic: 'structured',
+    q: 'Що таке assistant prefill?',
+    options: [
+      'Попередньо завантажений system prompt',
+      'Початок відповіді моделі що задаєш сам: { role: "assistant", content: "{" }',
+      'Кешована версія попереднього промпту',
+      'Відповідь з попереднього запиту в history'
+    ],
+    correct: 1
+  },
+  {
+    topic: 'structured',
+    q: 'Який спосіб гарантує найнадійніший JSON від Claude?',
+    options: [
+      'Написати "return JSON only" в system prompt',
+      'Assistant prefill + retry loop',
+      'Tool use з JSON Schema і tool_choice: forced',
+      'Temperature = 0'
+    ],
+    correct: 2
+  },
+  {
+    topic: 'structured',
+    q: 'XML теги у промпті — головна перевага над plain text?',
+    options: [
+      'Claude не розуміє Markdown',
+      'Чітко розділяють блоки контенту — документ, задача, контекст',
+      'Зменшують кількість токенів вдвічі',
+      "Обов'язкова вимога Anthropic API"
+    ],
+    correct: 1
+  },
+  // PROMPT EVAL
+  {
+    topic: 'eval',
+    q: 'Мінімальна кількість тест-кейсів для первинної оцінки промпту?',
+    options: ['3–5 прикладів', '20+ прикладів', '200+ прикладів', '1000+ прикладів'],
+    correct: 1
+  },
+  {
+    topic: 'eval',
+    q: 'Що таке "overfitting промпту"?',
+    options: [
+      'Промпт занадто довгий і коштує багато токенів',
+      'Промпт оптимізований під тест-сет але не generalize на нові дані',
+      'Модель перегрівається при довгих промптах',
+      'Занадто багато few-shot прикладів в промпті'
+    ],
+    correct: 1
+  },
+  {
+    topic: 'eval',
+    q: 'Правильний порядок: офлайн eval vs онлайн A/B?',
+    options: [
+      'Спочатку онлайн на реальних юзерах, потім офлайн',
+      'Спочатку офлайн на тест-сеті, потім онлайн',
+      'Лише офлайн — онлайн небезпечний',
+      'Паралельно — немає різниці'
+    ],
+    correct: 1
+  },
+];
+
+// ══════════════════════════════════════════════════════
+// FLASHCARDS STATE
+// ══════════════════════════════════════════════════════
+
+const TOPIC_META = {
+  tokens:     { label: 'Tokens',           cls: 'badge-tokens' },
+  generation: { label: 'Generation',       cls: 'badge-generation' },
+  context:    { label: 'Context Window',   cls: 'badge-context' },
+  system:     { label: 'System Prompt',    cls: 'badge-system' },
+  prompting:  { label: 'Prompting',        cls: 'badge-prompting' },
+  structured: { label: 'Structured Output',cls: 'badge-structured' },
+  eval:       { label: 'Prompt Eval',      cls: 'badge-eval' },
+};
+
+let fcDeck    = [];
+let fcDone    = [];
+let fcIndex   = 0;
+let fcFlipped = false;
+let fcFilter  = 'all';
+
+function buildDeck() {
+  fcDeck = (fcFilter === 'all' ? [...CARDS] : CARDS.filter(c => c.topic === fcFilter))
+    .sort(() => Math.random() - 0.5);
+  fcDone  = [];
+  fcIndex = 0;
+  fcFlipped = false;
+  renderCard();
+}
+
+function renderCard() {
+  const scene    = document.getElementById('card-scene');
+  const actions  = document.getElementById('fc-actions');
+  const flipBtn  = document.getElementById('fc-flip-btn');
+  const doneBox  = document.getElementById('fc-done');
+
+  if (fcDeck.length === 0) {
+    scene.style.display   = 'none';
+    actions.style.display = 'none';
+    flipBtn.style.display = 'none';
+    doneBox.style.display = 'block';
+    updateFcProgress();
+    return;
+  }
+
+  scene.style.display   = 'block';
+  doneBox.style.display = 'none';
+
+  const card = fcDeck[0];
+  const meta = TOPIC_META[card.topic];
+
+  // front
+  const badge = document.getElementById('card-badge');
+  badge.textContent  = meta.label;
+  badge.className    = 'badge ' + meta.cls;
+  document.getElementById('card-q').textContent = card.q;
+  document.getElementById('card-idx').textContent = (fcDone.length + 1) + ' / ' + (fcDeck.length + fcDone.length);
+
+  // back
+  const badgeBack = document.getElementById('card-badge-back');
+  badgeBack.textContent = meta.label;
+  badgeBack.className   = 'badge ' + meta.cls;
+  document.getElementById('card-a').innerHTML = card.a.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+  // flip state
+  scene.classList.remove('flipped');
+  fcFlipped = false;
+  actions.style.display  = 'none';
+  flipBtn.style.display  = 'flex';
+
+  updateFcProgress();
+}
+
+function flipCard() {
+  const scene   = document.getElementById('card-scene');
+  const actions = document.getElementById('fc-actions');
+  const flipBtn = document.getElementById('fc-flip-btn');
+
+  if (fcDeck.length === 0) return;
+
+  fcFlipped = !fcFlipped;
+  scene.classList.toggle('flipped', fcFlipped);
+
+  if (fcFlipped) {
+    actions.style.display = 'flex';
+    flipBtn.style.display = 'none';
+  } else {
+    actions.style.display = 'none';
+    flipBtn.style.display = 'flex';
+  }
+}
+
+function markCard(know) {
+  if (fcDeck.length === 0) return;
+  const card = fcDeck.shift();
+  if (know) {
+    fcDone.push(card);
+  } else {
+    fcDeck.push(card); // в кінець стеку
+  }
+  fcFlipped = false;
+  renderCard();
+}
+
+function updateFcProgress() {
+  const total   = fcDeck.length + fcDone.length;
+  const done    = fcDone.length;
+  const pct     = total ? Math.round(done / total * 100) : 100;
+  document.getElementById('fc-remaining').textContent = fcDeck.length;
+  document.getElementById('fc-total').textContent     = total;
+  document.getElementById('fc-bar').style.width       = pct + '%';
+}
+
+function setFilter(f, btn) {
+  fcFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  buildDeck();
+}
+
+function restartCards() {
+  buildDeck();
+}
+
+// ══════════════════════════════════════════════════════
+// QUIZ STATE
+// ══════════════════════════════════════════════════════
+
+let quizDeck    = [];
+let quizIdx     = 0;
+let quizScore   = 0;
+let quizAnswered = false;
+let mistakes    = [];
+
+function buildQuiz() {
+  quizDeck     = [...QUIZ].sort(() => Math.random() - 0.5);
+  quizIdx      = 0;
+  quizScore    = 0;
+  quizAnswered = false;
+  mistakes     = [];
+  document.getElementById('q-total').textContent = quizDeck.length;
+  document.getElementById('quiz-question-view').style.display = 'block';
+  document.getElementById('quiz-results-view').style.display  = 'none';
+  renderQuizQ();
+}
+
+function renderQuizQ() {
+  const q    = quizDeck[quizIdx];
+  const meta = TOPIC_META[q.topic];
+
+  document.getElementById('q-current').textContent = quizIdx + 1;
+  document.getElementById('q-score').textContent   = quizScore;
+
+  const badge = document.getElementById('q-badge');
+  badge.textContent = meta.label;
+  badge.className   = 'badge ' + meta.cls;
+
+  document.getElementById('q-text').textContent = q.q;
+  document.getElementById('q-feedback').textContent = '';
+  document.getElementById('q-feedback').className   = 'quiz-feedback';
+  document.getElementById('q-next').style.display   = 'none';
+
+  const pct = Math.round(quizIdx / quizDeck.length * 100);
+  document.getElementById('quiz-bar').style.width = pct + '%';
+
+  const opts = document.getElementById('q-options');
+  opts.innerHTML = '';
+  q.options.forEach((opt, i) => {
+    const btn = document.createElement('button');
+    btn.className   = 'quiz-option';
+    btn.textContent = opt;
+    btn.onclick     = () => answerQuiz(i);
+    opts.appendChild(btn);
+  });
+
+  quizAnswered = false;
+}
+
+function answerQuiz(chosen) {
+  if (quizAnswered) return;
+  quizAnswered = true;
+
+  const q    = quizDeck[quizIdx];
+  const btns = document.querySelectorAll('.quiz-option');
+
+  btns.forEach(b => b.disabled = true);
+  btns[q.correct].classList.add('correct');
+
+  const fb = document.getElementById('q-feedback');
+
+  if (chosen === q.correct) {
+    quizScore++;
+    document.getElementById('q-score').textContent = quizScore;
+    fb.textContent = '✓ Правильно!';
+    fb.className   = 'quiz-feedback correct';
+  } else {
+    btns[chosen].classList.add('wrong');
+    fb.textContent = '✗ Неправильно. Правильна відповідь виділена.';
+    fb.className   = 'quiz-feedback wrong';
+    mistakes.push({ q: q.q, correct: q.options[q.correct] });
+  }
+
+  document.getElementById('q-next').style.display = 'inline-block';
+}
+
+function nextQuestion() {
+  quizIdx++;
+  if (quizIdx >= quizDeck.length) {
+    showResults();
+  } else {
+    renderQuizQ();
+  }
+}
+
+function showResults() {
+  document.getElementById('quiz-question-view').style.display = 'none';
+  document.getElementById('quiz-results-view').style.display  = 'block';
+  document.getElementById('quiz-bar').style.width = '100%';
+
+  const total = quizDeck.length;
+  const pct   = Math.round(quizScore / total * 100);
+
+  const ring = document.getElementById('score-ring');
+  ring.style.setProperty('--pct', pct + '%');
+  document.getElementById('score-pct').textContent = pct + '%';
+
+  let title, sub;
+  if (pct === 100) { title = '🏆 Ідеально!';    sub = 'Всі питання правильно. Ти готовий до інтерв\'ю.'; }
+  else if (pct >= 80) { title = '💪 Відмінно!'; sub = `${quizScore} з ${total} правильно. Майже ідеально!`; }
+  else if (pct >= 60) { title = '📚 Непогано';  sub = `${quizScore} з ${total} правильно. Ще трохи повторити.`; }
+  else              { title = '🔁 Повторити';    sub = `${quizScore} з ${total} правильно. Поверніться до flashcards.`; }
+
+  document.getElementById('results-title').textContent = title;
+  document.getElementById('results-sub').textContent   = sub;
+
+  const ml = document.getElementById('mistakes-list');
+  ml.innerHTML = '';
+  if (mistakes.length) {
+    ml.innerHTML = '<h3>Де помилився</h3>';
+    mistakes.forEach(m => {
+      const div = document.createElement('div');
+      div.className = 'mistake-item';
+      div.innerHTML = `<strong>${m.q}</strong><span class="correct-ans">✓ ${m.correct}</span>`;
+      ml.appendChild(div);
+    });
+  }
+}
+
+function restartQuiz() { buildQuiz(); }
+
+// ══════════════════════════════════════════════════════
+// NAVIGATION
+// ══════════════════════════════════════════════════════
+
+function showView(name) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('view-' + name).classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach(b => {
+    if (b.textContent.toLowerCase().startsWith(name === 'flashcards' ? 'flash' : name === 'quiz' ? 'quiz' : 'cheat')) {
+      b.classList.add('active');
+    }
+  });
+
+  if (name === 'quiz' && quizIdx === 0 && !quizAnswered) buildQuiz();
+}
+
+// Keyboard shortcuts
+document.addEventListener('keydown', e => {
+  const fc = document.getElementById('view-flashcards');
+  if (!fc.classList.contains('active')) return;
+
+  if (e.code === 'Space') { e.preventDefault(); flipCard(); }
+  if (e.code === 'ArrowRight' && fcFlipped) markCard(true);
+  if (e.code === 'ArrowLeft'  && fcFlipped) markCard(false);
+});
+
+// ── Init ──
+buildDeck();
+</script>
+</body>
+</html>

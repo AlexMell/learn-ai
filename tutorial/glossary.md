@@ -1,6 +1,16 @@
 # Glossary — терміни та абревіатури
 
+## $
+
+**$ARGUMENTS**
+Змінна в Claude Code custom commands. Підставляє текст який ти передаєш після назви команди. Наприклад: `/doc-task 06_structured_output.ts` → `$ARGUMENTS` = `"06_structured_output.ts"`. Дозволяє робити команди гнучкими замість хардкодингу.
+
+---
+
 ## A
+
+**as const**
+TypeScript-оператор який "звужує" тип літерала до конкретного значення замість загального. `type: "object" as const` → тип `"object"`, а не `string`. Потрібен коли TypeScript-інтерфейс вимагає точний literal type.
 
 **API (Application Programming Interface)**
 Інтерфейс через який програми спілкуються між собою. Claude API — це набір HTTP endpoints до яких ти відправляєш запити і отримуєш відповіді.
@@ -24,6 +34,11 @@
 ---
 
 ## C
+
+**Custom slash commands (Claude Code)**
+Власні команди які ти створюєш для Claude Code. Зберігаються як `.md` файли в `.claude/commands/<назва>.md`. Викликаються в чаті як `/<назва>`. Вміст файлу — це промпт який Claude виконує. Можна використовувати `$ARGUMENTS` для передачі параметрів. Бувають project-level (`.claude/commands/`) і user-level (`~/.claude/commands/`).
+
+
 
 **cache_control**
 Поле в запиті яке позначає блок для кешування на сервері Anthropic. Повторні запити з ідентичним текстом читають з кешу — в 10 разів дешевше.
@@ -164,6 +179,9 @@ TypeScript тип з Anthropic SDK: `{ role: "user" | "assistant", content: stri
 **Stateless**
 API не зберігає стан між запитами. Кожен запит незалежний. Claude API — stateless, тому ти сам зберігаєш і передаєш всю историю розмови.
 
+**Structured output**
+Патерн отримання гарантовано структурованих даних від LLM. Замість парсингу тексту — примусовий виклик tool через `tool_choice`, де `block.input` завжди містить валідний JSON потрібної форми. Усуває проблему варіативності текстових відповідей.
+
 **stop_reason**
 Пояснення чому модель зупинила генерацію: `end_turn`, `max_tokens`, `tool_use`, `stop_sequence`.
 
@@ -188,6 +206,9 @@ API не зберігає стан між запитами. Кожен запи�
 
 **tool_choice**
 Параметр який контролює чи може Claude викликати tools: `"auto"` (сам вирішує), `"any"` (мусить викликати хоча б один), `{ type: "tool", name: "..." }` (конкретний tool).
+
+**Type assertion**
+TypeScript-синтаксис `value as SomeType` — каже компілятору "довір мені, я знаю точний тип цього значення". Обходить перевірку типів. Використовується для `block.input` (який завжди `unknown`) коли ти знаєш форму з `input_schema`.
 
 **tool_result**
 Тип блоку в user-повідомленні — результат виконання tool. Містить `tool_use_id` (прив'язка до виклику) і `content` (результат рядком).
