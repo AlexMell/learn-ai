@@ -31,14 +31,26 @@ Function calling — як модель взаємодіє з зовнішнім 
 - [x] Extended thinking — `budget_tokens`, thinking блоки, стрімінг
 - [x] Vision — зображення через URL і base64, кілька зображень
 
+### ✅ Definitions — Теоретична база + Interview prep
+Конспекти для розуміння і підготовки до інтерв'ю. Є flashcard app для повторення.
+
+- [x] Tokens — BPE, чому кирилиця дорожча, countTokens(), gotchas
+- [x] Як LLM генерує відповідь — next token prediction, temperature, top-p, stop sequences, галюцинації
+- [x] Context Window — lost in the middle, RAG стратегії, history management
+- [x] System vs User Prompt — різниця ролей, що куди писати, prompt injection
+- [x] Базові техніки промптингу — zero-shot, few-shot, CoT, role prompting
+- [x] Structured Output — JSON гарантії, assistant prefill, tool use, XML теги
+- [x] Prompt Evaluation — метрики, A/B тестування, LLM-as-judge, eval процес
+- [x] Review App — `tutorial/definitions/review-app/index.html` (41 flashcard, 27 quiz)
+
 ---
 
 ## Далі — 04 — Patterns (в роботі)
 
 Реальні патерни з продакшен застосунків.
 
-- [ ] Structured output — примусовий JSON через `tool_choice: "tool"`
-- [ ] RAG (Retrieval-Augmented Generation) — передача документів в контекст
+- [x] Structured output — примусовий JSON через `tool_choice: "tool"` *(покрито в Definitions)*
+- [ ] RAG (Retrieval-Augmented Generation) — повна реалізація: embeddings, vector search, retrieval
 - [ ] Summarization loop — стиснення довгої history щоб не перевищити context window
 - [ ] Retry та error handling — rate limits, timeout, `overloaded_error`
 - [ ] Batch API — відправка багатьох запитів асинхронно, дешевше на 50%
@@ -66,7 +78,8 @@ Function calling — як модель взаємодіє з зовнішнім 
 ## Формат кожної теми
 
 ```
-examples/<тема>.ts     — робочий код з коментарями
-tasks/<тема>.ts        — завдання: умова зверху, код пишеш сам
-tutorial/<тема>.md     — пояснення що відбувається, підводні камені, терміни
+examples/<тема>.ts            — робочий код з коментарями
+tasks/<тема>.ts               — завдання: умова зверху, код пишеш сам
+tutorial/<тема>.md            — пояснення що відбувається, підводні камені, терміни
+tutorial/definitions/<тема>.md — концептуальний конспект + interview Q&A
 ```
