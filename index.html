@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Learn AI — Claude API</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0d0d0f;
+  --surface: #16161a;
+  --surface2: #1e1e26;
+  --border: #2a2a36;
+  --accent: #7c3aed;
+  --accent-soft: rgba(124, 58, 237, 0.15);
+  --text: #e2e8f0;
+  --text-muted: #64748b;
+  --text-dim: #94a3b8;
+  --sidebar-w: 240px;
+  --header-h: 56px;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  min-height: 100vh;
+}
+
+/* ── Header ── */
+header {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: var(--header-h);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 20px;
+  z-index: 100;
+}
+
+.logo {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: -0.3px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.header-sep { color: var(--border); font-size: 16px; }
+
+.breadcrumb {
+  flex: 1;
+  font-size: 13px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.review-link {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-dim);
+  text-decoration: none;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  white-space: nowrap;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.review-link:hover { color: var(--text); border-color: var(--accent); background: var(--accent-soft); }
+
+.hamburger {
+  display: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  width: 36px;
+  height: 36px;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 5px;
+  border-radius: 6px;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+.hamburger:hover { background: var(--surface2); }
+.hamburger span { display: block; width: 18px; height: 2px; background: var(--text-dim); border-radius: 2px; }
+
+/* ── Layout ── */
+.layout {
+  display: flex;
+  margin-top: var(--header-h);
+  min-height: calc(100vh - var(--header-h));
+}
+
+/* ── Sidebar ── */
+.sidebar {
+  width: var(--sidebar-w);
+  min-width: var(--sidebar-w);
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  position: fixed;
+  top: var(--header-h);
+  bottom: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 8px 0 40px;
+  z-index: 90;
+  transition: transform 0.25s ease;
+}
+.sidebar::-webkit-scrollbar { width: 4px; }
+.sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.nav-section {
+  padding: 20px 16px 5px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px 7px 16px;
+  font-size: 13px;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+  text-decoration: none;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+}
+.nav-item:hover { background: var(--surface2); color: var(--text); }
+.nav-item.active { background: var(--accent-soft); color: var(--accent); }
+
+.nav-icon { font-size: 12px; width: 16px; text-align: center; flex-shrink: 0; opacity: 0.65; }
+.nav-item.active .nav-icon { opacity: 1; }
+
+/* ── Overlay ── */
+.overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 80;
+  backdrop-filter: blur(2px);
+}
+.overlay.active { display: block; }
+
+/* ── Content ── */
+.content {
+  flex: 1;
+  margin-left: var(--sidebar-w);
+  padding: 48px 56px 80px;
+  min-width: 0;
+}
+
+#page {
+  max-width: 800px;
+}
+
+/* ── Loader ── */
+.loader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-muted);
+  font-size: 14px;
+  padding: 48px 0;
+}
+.loader::before {
+  content: '';
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  flex-shrink: 0;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Tabs ── */
+.tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 32px;
+}
+.tab-btn {
+  background: none;
+  border: none;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: all 0.15s;
+}
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* ── Code file header ── */
+.code-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  padding: 8px 14px;
+}
+.code-filename {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-family: 'Fira Code', 'Cascadia Code', monospace;
+}
+.copy-btn {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.copy-btn:hover { background: var(--surface); color: var(--text); border-color: var(--accent); }
+
+.code-header + .md-body pre {
+  margin-top: 0 !important;
+  border-radius: 0 0 8px 8px !important;
+  border-top: none !important;
+}
+
+/* ── Glossary ── */
+.glossary-bar {
+  position: sticky;
+  top: var(--header-h);
+  background: var(--bg);
+  padding: 16px 0 14px;
+  z-index: 10;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 24px;
+}
+.glossary-input {
+  width: 100%;
+  max-width: 420px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 14px;
+  padding: 10px 14px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.glossary-input:focus { border-color: var(--accent); }
+.glossary-input::placeholder { color: var(--text-muted); }
+.glossary-meta { font-size: 12px; color: var(--text-muted); margin-top: 8px; }
+.term-block.hidden { display: none; }
+
+/* ── Markdown ── */
+.md-body { line-height: 1.75; }
+.md-body h1 { font-size: 1.7rem; font-weight: 700; margin: 0 0 28px; letter-spacing: -0.5px; }
+.md-body h2 { font-size: 1.2rem; font-weight: 600; margin: 40px 0 16px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+.md-body h3 { font-size: 1rem; font-weight: 600; margin: 28px 0 10px; }
+.md-body h4 { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; margin: 20px 0 8px; color: var(--text-muted); }
+.md-body p { margin: 0 0 14px; color: var(--text-dim); }
+.md-body ul, .md-body ol { margin: 0 0 14px; padding-left: 22px; color: var(--text-dim); }
+.md-body li { margin: 4px 0; }
+.md-body strong { color: var(--text); font-weight: 600; }
+.md-body a { color: var(--accent); text-decoration: none; }
+.md-body a:hover { text-decoration: underline; }
+.md-body hr { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
+
+.md-body code:not([class]) {
+  background: var(--surface2);
+  color: #fb923c;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.875em;
+  font-family: 'Fira Code', 'Cascadia Code', monospace;
+}
+
+.md-body pre {
+  margin: 14px 0 22px;
+  border-radius: 8px;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+}
+.md-body pre code.hljs {
+  padding: 16px 20px;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.65;
+  font-family: 'Fira Code', 'Cascadia Code', monospace;
+  display: block;
+}
+
+.md-body blockquote {
+  border-left: 3px solid var(--accent);
+  padding: 10px 16px;
+  margin: 16px 0;
+  background: var(--accent-soft);
+  border-radius: 0 6px 6px 0;
+}
+.md-body blockquote p { color: var(--text-dim); margin: 0; }
+
+.md-body table { width: 100%; border-collapse: collapse; margin: 14px 0 22px; font-size: 13px; display: block; overflow-x: auto; }
+.md-body th { background: var(--surface2); padding: 8px 12px; text-align: left; font-weight: 600; border: 1px solid var(--border); white-space: nowrap; }
+.md-body td { padding: 8px 12px; border: 1px solid var(--border); color: var(--text-dim); vertical-align: top; }
+.md-body tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
+
+/* ── Error box ── */
+.err {
+  background: rgba(239,68,68,0.08);
+  border: 1px solid rgba(239,68,68,0.25);
+  border-radius: 8px;
+  padding: 16px 20px;
+  font-size: 14px;
+  color: #fca5a5;
+  margin: 16px 0;
+}
+.err code { background: rgba(239,68,68,0.15); padding: 2px 5px; border-radius: 3px; }
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .hamburger { display: flex; }
+  .sidebar { transform: translateX(-100%); }
+  .sidebar.open { transform: translateX(0); box-shadow: 8px 0 32px rgba(0,0,0,0.5); }
+  .content { margin-left: 0; padding: 24px 20px 60px; }
+  .header-sep { display: none; }
+}
+@media (max-width: 480px) {
+  .review-link { display: none; }
+  .content { padding: 20px 16px 60px; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <button class="hamburger" id="hamburger" aria-label="Меню">
+    <span></span><span></span><span></span>
+  </button>
+  <span class="logo" onclick="go('home')">learn-ai</span>
+  <span class="header-sep">/</span>
+  <div class="breadcrumb" id="breadcrumb"></div>
+  <a class="review-link" href="tutorial/definitions/review-app/index.html" target="_blank" rel="noopener">🎯 Review App</a>
+</header>
+
+<div class="layout">
+  <aside class="sidebar" id="sidebar"><nav id="nav"></nav></aside>
+  <div class="overlay" id="overlay"></div>
+  <main class="content"><div id="page"></div></main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/typescript.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked@4.3.0/marked.min.js"></script>
+<script>
+'use strict';
+
+// ── Nav map ──────────────────────────────────────────────────────
+const NAV = [
+  { type:'home',    id:'home',         label:'Home',              icon:'🏠' },
+
+  { type:'section', label:'BASICS' },
+  { type:'lesson',  id:'basics-01',    label:'01 Hello Claude',
+    tutorial:'tutorial/01_basics/01_hello_claude.md',  code:'01_basics/01_hello_claude.ts' },
+  { type:'lesson',  id:'basics-02',    label:'02 Parameters',
+    tutorial:'tutorial/01_basics/02_parameters.md',    code:'01_basics/02_parameters.ts' },
+  { type:'lesson',  id:'basics-03',    label:'03 System Prompts',
+    tutorial:'tutorial/01_basics/03_system_prompts.md',code:'01_basics/03_system_prompts.ts' },
+  { type:'lesson',  id:'basics-04',    label:'04 Streaming',
+    tutorial:'tutorial/01_basics/04_streaming.md',     code:'01_basics/04_streaming.ts' },
+  { type:'lesson',  id:'basics-05',    label:'05 Token Counting',
+    tutorial:'tutorial/01_basics/05_token_counting.md',code:'01_basics/05_token_counting.ts' },
+
+  { type:'section', label:'TOOLS' },
+  { type:'lesson',  id:'tools-01',     label:'01 Simple Tool',
+    tutorial:'tutorial/02_tools/01_simple_tool.md',    code:'02_tools/01_simple_tool.ts' },
+  { type:'lesson',  id:'tools-02',     label:'02 Tool Loop',
+    tutorial:'tutorial/02_tools/02_tool_loop.md',      code:'02_tools/02_tool_loop.ts' },
+  { type:'lesson',  id:'tools-03',     label:'03 Multi Tools',
+    tutorial:'tutorial/02_tools/03_multi_tools.md',    code:'02_tools/03_multi_tools.ts' },
+
+  { type:'section', label:'ADVANCED' },
+  { type:'lesson',  id:'advanced-01',  label:'01 Prompt Caching',
+    tutorial:'tutorial/03_advanced/01_prompt_caching.md',     code:'03_advanced/01_prompt_caching.ts' },
+  { type:'lesson',  id:'advanced-02',  label:'02 Extended Thinking',
+    tutorial:'tutorial/03_advanced/02_extended_thinking.md',  code:'03_advanced/02_extended_thinking.ts' },
+  { type:'lesson',  id:'advanced-03',  label:'03 Vision',
+    tutorial:'tutorial/03_advanced/03_vision.md',             code:'03_advanced/03_vision.ts' },
+
+  { type:'section', label:'TASKS' },
+  { type:'lesson',  id:'tasks-01',     label:'01 Ask a Question',
+    tutorial:'tutorial/tasks/01_ask_a_question.md',    code:'tasks/01_ask_a_question.ts' },
+  { type:'lesson',  id:'tasks-02',     label:'02 Conversation',
+    tutorial:'tutorial/tasks/02_conversation.md',      code:'tasks/02_conversation.ts' },
+  { type:'lesson',  id:'tasks-03',     label:'03 Streaming',
+    tutorial:'tutorial/tasks/03_streaming.md',         code:'tasks/03_streaming.ts' },
+  { type:'lesson',  id:'tasks-04',     label:'04 Tool Weather',
+    tutorial:'tutorial/tasks/04_tool_weather.md',      code:'tasks/04_tool_weather.ts' },
+  { type:'lesson',  id:'tasks-05',     label:'05 Tool Loop',
+    tutorial:'tutorial/tasks/05_tool_loop.md',         code:'tasks/05_tool_loop.ts' },
+  { type:'lesson',  id:'tasks-06',     label:'06 Structured Output',
+    tutorial:'tutorial/tasks/06_structured_output.md', code:'tasks/06_structured_output.ts' },
+
+  { type:'section', label:'DEFINITIONS' },
+  { type:'def', id:'def-tokens',   label:'Tokens',            file:'tutorial/definitions/tokens.md' },
+  { type:'def', id:'def-gen',      label:'Generation',        file:'tutorial/definitions/generation.md' },
+  { type:'def', id:'def-ctx',      label:'Context Window',    file:'tutorial/definitions/context_window.md' },
+  { type:'def', id:'def-sys',      label:'System Prompt',     file:'tutorial/definitions/system_prompt.md' },
+  { type:'def', id:'def-prompt',   label:'Prompting Basics',  file:'tutorial/definitions/prompting_basics.md' },
+  { type:'def', id:'def-struct',   label:'Structured Output', file:'tutorial/definitions/structured_output.md' },
+  { type:'def', id:'def-eval',     label:'Prompt Evaluation', file:'tutorial/definitions/prompt_evaluation.md' },
+  { type:'def', id:'def-fn',       label:'Function Calling',  file:'tutorial/definitions/function_calling.md' },
+
+  { type:'section', label:'REFERENCE' },
+  { type:'glossary', id:'glossary', label:'Glossary', icon:'📋' },
+  { type:'link', label:'🎯 Review App', href:'tutorial/definitions/review-app/index.html' },
+];
+
+const ICONS = { BASICS:'📄', TOOLS:'🔧', ADVANCED:'⚡', TASKS:'✏️', DEFINITIONS:'📚', REFERENCE:'🔗' };
+
+// ── marked setup ─────────────────────────────────────────────────
+marked.setOptions({
+  gfm: true,
+  highlight(code, lang) {
+    const l = lang && hljs.getLanguage(lang) ? lang : 'typescript';
+    try { return hljs.highlight(code, { language: l, ignoreIllegals: true }).value; }
+    catch { return code; }
+  },
+  langPrefix: 'hljs language-',
+});
+
+// ── Utils ────────────────────────────────────────────────────────
+const $  = id => document.getElementById(id);
+const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+async function load(path) {
+  const r = await fetch(path);
+  if (!r.ok) throw new Error(`${r.status} — ${path}`);
+  return r.text();
+}
+
+function md(src) { return `<div class="md-body">${marked.parse(src)}</div>`; }
+
+function loader() { $('page').innerHTML = '<div class="loader">Loading…</div>'; }
+
+function errBox(msg) {
+  return `<div class="err"><strong>Could not load content</strong><br>${esc(msg)}<br>
+  Locally: use <code>npx serve .</code> — <code>file://</code> blocks fetch().</div>`;
+}
+
+// ── Router ───────────────────────────────────────────────────────
+let cur = null;
+
+async function go(id) {
+  const item = NAV.find(n => n.id === id);
+  if (!item) { go('home'); return; }
+  if (item.type === 'link') { window.open(item.href, '_blank', 'noopener'); return; }
+  if (id === cur) return;
+  cur = id;
+
+  document.querySelectorAll('.nav-item[data-id]').forEach(el =>
+    el.classList.toggle('active', el.dataset.id === id));
+
+  if (location.hash.slice(1) !== id) history.pushState(null, '', '#' + id);
+
+  // breadcrumb
+  let sec = null;
+  for (const n of NAV) {
+    if (n.type === 'section') sec = n.label;
+    if (n.id === id) break;
+  }
+  $('breadcrumb').textContent = (item.type === 'home') ? '' : (sec ? sec + ' › ' + item.label : item.label);
+
+  closeSidebar();
+  loader();
+  window.scrollTo(0, 0);
+
+  try {
+    if (item.type === 'home')        await renderHome();
+    else if (item.type === 'lesson') await renderLesson(item);
+    else if (item.type === 'def')    await renderDef(item);
+    else if (item.type === 'glossary') await renderGlossary();
+  } catch(e) {
+    $('page').innerHTML = errBox(e.message);
+  }
+}
+
+// ── Renderers ────────────────────────────────────────────────────
+async function renderHome() {
+  const src = await load('README.md');
+  $('page').innerHTML = md(src);
+}
+
+async function renderDef(item) {
+  const src = await load(item.file);
+  $('page').innerHTML = md(src);
+}
+
+async function renderLesson(item) {
+  $('page').innerHTML = `
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="tut">Tutorial</button>
+      <button class="tab-btn" data-tab="code">Code Example</button>
+    </div>
+    <div class="tab-panel active" id="panel-tut"><div class="loader">Loading…</div></div>
+    <div class="tab-panel" id="panel-code"><div class="loader">Loading…</div></div>`;
+
+  $('page').querySelectorAll('.tab-btn').forEach(btn => btn.addEventListener('click', () => {
+    $('page').querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    $('page').querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    $('panel-' + btn.dataset.tab).classList.add('active');
+  }));
+
+  const [t, c] = await Promise.allSettled([load(item.tutorial), load(item.code)]);
+
+  $('panel-tut').innerHTML = t.status === 'fulfilled'
+    ? md(t.value)
+    : errBox('Tutorial not found: ' + item.tutorial);
+
+  if (c.status === 'fulfilled') {
+    const hi = hljs.highlight(c.value, { language:'typescript', ignoreIllegals:true }).value;
+    $('panel-code').innerHTML = `
+      <div class="code-header">
+        <span class="code-filename">📄 ${esc(item.code)}</span>
+        <button class="copy-btn" onclick="doCopy(this)">Copy</button>
+      </div>
+      <div class="md-body"><pre style="margin-top:0;border-radius:0 0 8px 8px;border-top:none"><code class="hljs language-typescript">${hi}</code></pre></div>`;
+  } else {
+    $('panel-code').innerHTML = errBox('Code not found: ' + item.code);
+  }
+}
+
+async function renderGlossary() {
+  const src = await load('tutorial/glossary.md');
+  $('page').innerHTML = `
+    <div class="glossary-bar">
+      <input class="glossary-input" id="g-input" type="search"
+             placeholder="Search / Пошук…" autocomplete="off" spellcheck="false">
+      <div class="glossary-meta" id="g-meta"></div>
+    </div>
+    <div class="md-body" id="g-body"></div>`;
+
+  $('g-body').innerHTML = marked.parse(src);
+
+  // wrap each h3 + its following siblings into .term-block
+  const nodes = Array.from($('g-body').children);
+  let block = null;
+  for (const node of nodes) {
+    const tag = node.tagName;
+    if (tag === 'H3') {
+      block = document.createElement('div');
+      block.className = 'term-block';
+      node.parentNode.insertBefore(block, node);
+      block.appendChild(node);
+    } else if (block && tag !== 'H1' && tag !== 'H2') {
+      block.appendChild(node);
+    } else {
+      block = null;
+    }
+  }
+
+  const blocks = $('g-body').querySelectorAll('.term-block');
+  setMeta(blocks.length, blocks.length);
+
+  let t;
+  $('g-input').addEventListener('input', function() {
+    clearTimeout(t);
+    t = setTimeout(() => {
+      const q = this.value.toLowerCase().trim();
+      let v = 0;
+      blocks.forEach(b => {
+        const show = !q || b.textContent.toLowerCase().includes(q);
+        b.classList.toggle('hidden', !show);
+        if (show) v++;
+      });
+      setMeta(v, blocks.length);
+    }, 120);
+  });
+}
+
+function setMeta(v, total) {
+  const el = $('g-meta');
+  if (el) el.textContent = v === total ? total + ' terms' : v + ' of ' + total + ' terms';
+}
+
+// ── Copy ─────────────────────────────────────────────────────────
+function doCopy(btn) {
+  const code = btn.closest('.code-header').nextElementSibling.querySelector('code');
+  navigator.clipboard.writeText(code.textContent).then(
+    () => { btn.textContent = '✓ Copied'; setTimeout(() => { btn.textContent = 'Copy'; }, 2000); },
+    () => { btn.textContent = 'Failed';   setTimeout(() => { btn.textContent = 'Copy'; }, 2000); }
+  );
+}
+
+// ── Sidebar ──────────────────────────────────────────────────────
+function buildNav() {
+  const nav = $('nav');
+  let sec = null;
+  NAV.forEach(item => {
+    if (item.type === 'section') {
+      sec = item.label;
+      const d = document.createElement('div');
+      d.className = 'nav-section';
+      d.textContent = item.label;
+      nav.appendChild(d);
+      return;
+    }
+    if (item.type === 'link') {
+      const a = document.createElement('a');
+      a.className = 'nav-item';
+      a.href = item.href;
+      a.target = '_blank';
+      a.rel = 'noopener';
+      a.innerHTML = `<span class="nav-icon">↗</span><span>${item.label}</span>`;
+      nav.appendChild(a);
+      return;
+    }
+    const icon = item.icon || ICONS[sec] || '•';
+    const btn = document.createElement('button');
+    btn.className = 'nav-item';
+    btn.dataset.id = item.id;
+    btn.innerHTML = `<span class="nav-icon">${icon}</span><span>${item.label}</span>`;
+    btn.addEventListener('click', () => go(item.id));
+    nav.appendChild(btn);
+  });
+}
+
+function openSidebar()  {
+  $('sidebar').classList.add('open');
+  $('overlay').classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+function closeSidebar() {
+  $('sidebar').classList.remove('open');
+  $('overlay').classList.remove('active');
+  document.body.style.overflow = '';
+}
+
+$('hamburger').addEventListener('click', () =>
+  $('sidebar').classList.contains('open') ? closeSidebar() : openSidebar());
+$('overlay').addEventListener('click', closeSidebar);
+
+window.addEventListener('hashchange', () => go(location.hash.slice(1) || 'home'));
+
+// ── Boot ─────────────────────────────────────────────────────────
+buildNav();
+go(location.hash.slice(1) || 'home');
+</script>
+</body>
+</html>
