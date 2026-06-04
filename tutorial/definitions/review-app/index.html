@@ -100,13 +100,20 @@
     text-transform: uppercase;
     letter-spacing: 0.5px;
   }
-  .badge-tokens     { background: rgba(245,158,11,0.15);  color: var(--token-color); }
-  .badge-generation { background: rgba(6,182,212,0.15);   color: var(--gen-color); }
-  .badge-context    { background: rgba(167,139,250,0.15); color: var(--ctx-color); }
-  .badge-system     { background: rgba(52,211,153,0.15);  color: #34d399; }
-  .badge-prompting  { background: rgba(251,146,60,0.15);  color: #fb923c; }
-  .badge-structured { background: rgba(244,114,182,0.15); color: #f472b6; }
-  .badge-eval       { background: rgba(96,165,250,0.15);  color: #60a5fa; }
+  .badge-tokens          { background: rgba(245,158,11,0.15);  color: var(--token-color); }
+  .badge-generation      { background: rgba(6,182,212,0.15);   color: var(--gen-color); }
+  .badge-context         { background: rgba(167,139,250,0.15); color: var(--ctx-color); }
+  .badge-system          { background: rgba(52,211,153,0.15);  color: #34d399; }
+  .badge-prompting       { background: rgba(251,146,60,0.15);  color: #fb923c; }
+  .badge-structured      { background: rgba(244,114,182,0.15); color: #f472b6; }
+  .badge-eval            { background: rgba(96,165,250,0.15);  color: #60a5fa; }
+  .badge-function        { background: rgba(234,179,8,0.15);   color: #eab308; }
+  .badge-agents          { background: rgba(239,68,68,0.15);   color: #f87171; }
+  .badge-agent_patterns  { background: rgba(168,85,247,0.15);  color: #c084fc; }
+  .badge-agent_safety    { background: rgba(20,184,166,0.15);  color: #2dd4bf; }
+  .badge-mcp             { background: rgba(59,130,246,0.15);  color: #93c5fd; }
+  .badge-mcp_arch        { background: rgba(16,185,129,0.15);  color: #6ee7b7; }
+  .badge-tool_practice   { background: rgba(249,115,22,0.15);  color: #fdba74; }
 
   /* ══════════════════════════════
      FLASHCARDS
@@ -577,6 +584,13 @@
         <button class="filter-btn" onclick="setFilter('prompting', this)">Prompting</button>
         <button class="filter-btn" onclick="setFilter('structured', this)">Structured Output</button>
         <button class="filter-btn" onclick="setFilter('eval', this)">Prompt Eval</button>
+        <button class="filter-btn" onclick="setFilter('function', this)">Function Calling</button>
+        <button class="filter-btn" onclick="setFilter('agents', this)">Agents</button>
+        <button class="filter-btn" onclick="setFilter('agent_patterns', this)">Agent Patterns</button>
+        <button class="filter-btn" onclick="setFilter('agent_safety', this)">Agent Safety</button>
+        <button class="filter-btn" onclick="setFilter('mcp', this)">MCP</button>
+        <button class="filter-btn" onclick="setFilter('mcp_arch', this)">MCP Architecture</button>
+        <button class="filter-btn" onclick="setFilter('tool_practice', this)">Tool Practice</button>
       </div>
       <div class="fc-progress">
         Залишилось: <span id="fc-remaining">0</span> / <span id="fc-total">0</span>
@@ -882,6 +896,164 @@
       </table>
     </div>
 
+    <div class="divider"></div>
+
+    <div class="cheat-section">
+      <h2><span class="badge badge-function">Function Calling</span> Flow та правила</h2>
+      <table class="cheat-table">
+        <thead>
+          <tr><th>Крок</th><th>Дія</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>1. Define</td><td>{ name, description, input_schema } — description найважливіше</td></tr>
+          <tr><td>2. Pass</td><td>tools: [...] в messages.create</td></tr>
+          <tr><td>3. Check</td><td>stop_reason === "tool_use"</td></tr>
+          <tr><td>4. Parse</td><td>.filter(b =&gt; b.type === "tool_use")</td></tr>
+          <tr><td>5. Execute</td><td>твоя функція з block.input as YourType</td></tr>
+          <tr><td>6. Return</td><td>{ type: "tool_result", tool_use_id: block.id, content: JSON.stringify(result) }</td></tr>
+          <tr><td>7. History</td><td>assistant turn + user turn з results → наступний запит</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="cheat-section" style="margin-top:20px">
+      <h2><span class="badge badge-function">Function Calling</span> tool_choice варіанти</h2>
+      <table class="cheat-table">
+        <thead>
+          <tr><th>Значення</th><th>Поведінка</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>"auto"</td><td>Claude сам вирішує чи викликати tool</td></tr>
+          <tr><td>"any"</td><td>Мусить викликати хоча б один tool</td></tr>
+          <tr><td>{ type: "tool", name: "X" }</td><td>Forced — guaranteed structured output (block.input = valid object)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="cheat-section">
+      <h2><span class="badge badge-agents">Agents</span> Компоненти та цикл</h2>
+      <div class="cheat-grid">
+        <div class="cheat-card">
+          <div class="label">Формула агента</div>
+          <div class="value" style="font-size:14px">LLM + Tools + Loop</div>
+          <div class="sub">три обов'язкових компоненти</div>
+        </div>
+        <div class="cheat-card">
+          <div class="label">MAX_ITERATIONS</div>
+          <div class="value">10–20</div>
+          <div class="sub">default; без ліміту — нескінченний цикл</div>
+        </div>
+        <div class="cheat-card">
+          <div class="label">ReAct = ?</div>
+          <div class="value" style="font-size:14px">Reason+Act+Observe</div>
+          <div class="sub">чергування думок і дій</div>
+        </div>
+        <div class="cheat-card">
+          <div class="label">Planning корисний коли</div>
+          <div class="value">&gt; 5 кроків</div>
+          <div class="sub">або кроки залежать один від одного</div>
+        </div>
+        <div class="cheat-card">
+          <div class="label">Вартість агента</div>
+          <div class="value">N × запит</div>
+          <div class="sub">N ітерацій — логуй і контролюй бюджет</div>
+        </div>
+        <div class="cheat-card">
+          <div class="label">In-context memory</div>
+          <div class="value">messages[]</div>
+          <div class="sub">тимчасово, обмежено context window</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="cheat-section">
+      <h2><span class="badge badge-agent_patterns">Agent Patterns</span> Вибір патерну</h2>
+      <table class="cheat-table">
+        <thead>
+          <tr><th>Патерн</th><th>Коли</th><th>LLM calls</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Tool-using agent</td><td>1–5 кроків, прості tools</td><td>N (sequential loop)</td></tr>
+          <tr><td>Multi-step / Chaining</td><td>Залежні фази (B потребує A)</td><td>N (sequential)</td></tr>
+          <tr><td>Orchestrator</td><td>Спеціалізовані незалежні підзадачі</td><td>1 + N workers (parallel)</td></tr>
+          <tr><td>Multi-agent</td><td>&gt; context window, ізоляція</td><td>N × M (parallel)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="cheat-section">
+      <h2><span class="badge badge-agent_safety">Agent Safety</span> Чеклист</h2>
+      <div class="cheat-grid">
+        <div class="cheat-card">
+          <div class="label">Прості агенти</div>
+          <div class="value">5–10</div>
+          <div class="sub">MAX_ITERATIONS для lookup/search</div>
+        </div>
+        <div class="cheat-card">
+          <div class="label">Середні агенти</div>
+          <div class="value">10–20</div>
+          <div class="sub">MAX_ITERATIONS для аналізу</div>
+        </div>
+        <div class="cheat-card">
+          <div class="label">Складні агенти</div>
+          <div class="value">20–50</div>
+          <div class="sub">MAX_ITERATIONS для code/research</div>
+        </div>
+        <div class="cheat-card">
+          <div class="label">Простий run вартість</div>
+          <div class="value">~$0.03</div>
+          <div class="sub">5 ітерацій × 2k tokens (Sonnet)</div>
+        </div>
+        <div class="cheat-card">
+          <div class="label">HITL обов'язково</div>
+          <div class="value" style="font-size:12px">незворотні дії</div>
+          <div class="sub">email, delete, purchase, public post</div>
+        </div>
+        <div class="cheat-card">
+          <div class="label">Tool error</div>
+          <div class="value" style="font-size:12px">is_error: true</div>
+          <div class="sub">ніколи throw — повертай в loop</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="cheat-section">
+      <h2><span class="badge badge-mcp">MCP</span> Коли що обирати</h2>
+      <table class="cheat-table">
+        <thead>
+          <tr><th>Підхід</th><th>Коли</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Function Calling</td><td>Бізнес-логіка специфічна для 1 застосунку, tool вже в твоєму коді</td></tr>
+          <tr><td>MCP</td><td>Стандартний сервіс (GitHub, Slack, Postgres), кілька AI хостів</td></tr>
+          <tr><td>stdio transport</td><td>Локальний сервер, розробка, Claude Desktop</td></tr>
+          <tr><td>HTTP/SSE transport</td><td>Хмарний сервіс, кілька юзерів одночасно</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="cheat-section" style="margin-top:20px">
+      <h2><span class="badge badge-mcp_arch">MCP Architecture</span> Три типи примітивів</h2>
+      <table class="cheat-table">
+        <thead>
+          <tr><th>Тип</th><th>Що робить</th><th>Side effects</th><th>Аналог</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Tools</td><td>Викликаються Claude — виконують дії</td><td>Так</td><td>POST/PUT/DELETE API</td></tr>
+          <tr><td>Resources</td><td>Дані для читання по URI</td><td>Ні</td><td>GET API / файл</td></tr>
+          <tr><td>Prompts</td><td>Шаблони з параметрами в UI хоста</td><td>Ні</td><td>Slash-команди</td></tr>
+        </tbody>
+      </table>
+    </div>
+
   </div>
 </main>
 
@@ -1102,6 +1274,208 @@ const CARDS = [
     topic: 'eval',
     q: 'Чим офлайн eval відрізняється від онлайн A/B тестування?',
     a: 'Офлайн — на заготовленому тест-сеті до деплою, без ризику для реальних юзерів, швидко. Онлайн — частина реального трафіку іде на новий промпт, більш репрезентативний. Правильний порядок: спочатку офлайн, потім онлайн.'
+  },
+  // FUNCTION CALLING
+  {
+    topic: 'function',
+    q: 'What is function calling and does Claude actually execute code?',
+    a: 'No — Claude never executes code. It returns a `tool_use` block describing which function to call and with what arguments. You execute the function and send back a `tool_result`. Claude then uses the result to continue generating.'
+  },
+  {
+    topic: 'function',
+    q: 'Що таке agentic loop і коли він завершується?',
+    a: 'Цикл: відправити запит → якщо stop_reason = "tool_use" → виконати tools → додати результати в history → повторити. Завершується коли stop_reason = "end_turn" — модель вирішила що має достатньо інформації для фінальної відповіді.'
+  },
+  {
+    topic: 'function',
+    q: 'Яке поле в tool schema найважливіше і чому?',
+    a: '`description`. Саме на його основі модель вирішує чи викликати tool і в яких ситуаціях. Погана description → модель не розуміє коли застосовувати tool або плутає tools між собою.'
+  },
+  {
+    topic: 'function',
+    q: 'Як відправити результати кількох паралельних tool calls?',
+    a: 'Всі tool_result блоки йдуть в одному user повідомленні — масивом. Кожен блок містить tool_use_id що прив\'язує результат до конкретного виклику. Два окремих user повідомлення підряд — порушення протоколу.'
+  },
+  {
+    topic: 'function',
+    q: 'Чим `tool_choice: "tool"` корисний для structured output?',
+    a: 'Якщо вказати конкретний tool і `tool_choice: { type: "tool", name: "..." }` — модель зобов\'язана викликати саме цей tool і заповнити схему. `block.input` вже є валідним JS-об\'єктом — не треба парсити текст і немає ризику markdown обгортки.'
+  },
+  {
+    topic: 'function',
+    q: 'Що відбувається якщо tool кинув помилку — треба ловити?',
+    a: 'Так — завжди ловити і повертати як `tool_result` з `is_error: true`. Якщо exception не спійманий — Claude не отримує feedback і не може скоригувати поведінку. З `is_error` Claude може перефразувати виклик або пояснити юзеру.'
+  },
+  // AGENTS
+  {
+    topic: 'agents',
+    q: 'What is an AI agent and how does it differ from a chatbot?',
+    a: 'An agent is an LLM running in an autonomous loop: receives a goal, decides which tool to call, executes it, observes the result, and repeats until done. A chatbot does one request → one response, and a human drives the next step. The critical difference is autonomy over multi-step processes.'
+  },
+  {
+    topic: 'agents',
+    q: 'Що таке ReAct pattern?',
+    a: 'ReAct (Reasoning + Acting) — патерн де модель чергує між "думанням вголос" і виконанням дій (tool calls). Reason → Act → Observe → повтор. В Claude це реалізується через extended thinking + tool use в agentic loop.'
+  },
+  {
+    topic: 'agents',
+    q: 'Як запобігти нескінченному циклу агента?',
+    a: 'Завжди встановлюй MAX_ITERATIONS (зазвичай 10–20) і кидай error якщо агент не завершив. Також логуй кожну ітерацію, встанови бюджет токенів, моніторь прогрес (якщо агент двічі робить той самий tool call — щось пішло не так).'
+  },
+  {
+    topic: 'agents',
+    q: 'Яка різниця між in-context та external memory агента?',
+    a: 'In-context memory — це messages[] в поточній сесії: швидко, але обмежено context window і зникає після. External memory — DB або vector store: персистентна між сесіями, але потребує явного запиту (RAG). Продакшн: поєднують обидва.'
+  },
+  {
+    topic: 'agents',
+    q: 'Як реалізувати planning у агента?',
+    a: 'Двофазно: спочатку окремий запит де модель генерує план (список кроків) без виконання; потім виконання — кожен крок як окремий agent run або prompt. Planning корисний коли > 5 кроків, кроки залежать один від одного, або юзер хоче підтвердити план.'
+  },
+  {
+    topic: 'agents',
+    q: 'Чому agent run може коштувати у 10–50× більше ніж простий запит?',
+    a: 'Один агентний run = N API запитів (N ітерацій циклу). Кожна ітерація коштує input + output токени. Логуй кількість ітерацій і tokens/run, встановлюй бюджети. MAX_ITERATIONS = захист від перевитрат.'
+  },
+  // AGENT PATTERNS
+  {
+    topic: 'agent_patterns',
+    q: 'What are the main agent patterns and when do you choose each?',
+    a: 'Four patterns: tool-using agent (single LLM in loop, ≤5 steps); prompt chaining (sequential steps, each output feeds next, for dependent pipelines); orchestrator (one LLM plans + dispatches to workers, for specialized subtasks); multi-agent (independent agents with separate contexts, for tasks > context window or needing isolation).'
+  },
+  {
+    topic: 'agent_patterns',
+    q: 'Чим відрізняється Orchestrator від Multi-agent?',
+    a: 'Orchestrator — ієрархія: центральний LLM планує і тримає загальний контекст, workers не мають власного agentic loop. Multi-agent — рівноправна мережа: кожен агент незалежний, має свій context window і власний loop, координація через зовнішній код або окремий агент.'
+  },
+  {
+    topic: 'agent_patterns',
+    q: 'What is a "gate" in prompt chaining and why do you need it?',
+    a: 'A gate is a validation step between chaining steps. Before passing output from step N to step N+1, you check quality criteria — is it valid JSON, are required fields present, is the result non-empty. Without gates, a bad output at step 2 silently corrupts steps 3–5.'
+  },
+  {
+    topic: 'agent_patterns',
+    q: 'Який патерн у типового агента розсилки і чому?',
+    a: 'Multi-step agent. Розсилка — лінійний pipeline: отримати підписників → згенерувати контент для сегментів (паралельні tool calls в одному кроці) → валідація gate → відправити. Один агент справляється. Orchestrator потрібен лише якщо кожна фаза = окремий складний agentic loop.'
+  },
+  {
+    topic: 'agent_patterns',
+    q: 'When would you split one agent into a multi-agent system?',
+    a: 'When the task genuinely exceeds one context window; when subtasks need true isolation; or when you need per-agent fault tolerance. Don\'t split just for parallelism — parallel tool calls within one agent achieve that at a fraction of the complexity and cost.'
+  },
+  {
+    topic: 'agent_patterns',
+    q: 'Як уникнути роздутого контексту в оркестраторі?',
+    a: 'Передавай workers тільки необхідний контекст, а не всю history. Worker повертає стислий результат — structured output або summary. Оркестратор повинен бачити "що зроблено і який результат", а не "як саме worker це зробив."'
+  },
+  // AGENT SAFETY
+  {
+    topic: 'agent_safety',
+    q: 'How do you prevent an agent from running forever?',
+    a: 'Three layers: MAX_ITERATIONS as a hard loop counter; loop detection checking if the last tool call signature was already seen in recent history; and a cost budget checked after each iteration. Each catches a different failure mode.'
+  },
+  {
+    topic: 'agent_safety',
+    q: 'Що таке Human in the Loop і коли він обов\'язковий?',
+    a: 'HITL — контрольна точка де агент зупиняється і чекає підтвердження від людини перед незворотною дією. Обов\'язковий для: відправки повідомлень, запису або видалення даних, фінансових транзакцій, публічного постингу.'
+  },
+  {
+    topic: 'agent_safety',
+    q: 'What should you log for every agent run and why?',
+    a: 'At minimum: run ID, goal, iteration count, tokens per step, tool name + input + result + error flag per call, total cost estimate, and final success/failure. Without this, debugging a production failure means replaying the entire run from scratch.'
+  },
+  {
+    topic: 'agent_safety',
+    q: 'Що відбувається якщо tool кидає exception в agentic loop — треба ловити?',
+    a: 'Так, завжди. Якщо exception не спійманий — він вибиває весь agentic loop і агент не повертає жодного результату. Якщо спійманий і повернутий як `is_error: true` — агент отримує опис помилки і може скоригувати підхід.'
+  },
+  {
+    topic: 'agent_safety',
+    q: 'Скільки ставити MAX_ITERATIONS для різних типів агентів?',
+    a: 'Прості lookup-агенти — 5–10. Середні (аналіз, генерація) — 10–20. Складні code або research агенти — до 50. Ніколи — без ліміту. Правило: логуй реальну кількість ітерацій і встановлюй ліміт як 2× від 95-го перцентилю.'
+  },
+  // MCP
+  {
+    topic: 'mcp',
+    q: 'What is MCP and why was it created?',
+    a: 'MCP is an open protocol created by Anthropic in November 2024 to standardize how AI models connect to external tools and data. Before MCP, every AI app built custom integrations — N apps × M services = N×M duplicated work. MCP reduces this to N+M: write one server, any compatible host can use it.'
+  },
+  {
+    topic: 'mcp',
+    q: 'Яка різниця між MCP і function calling?',
+    a: 'Function calling — ти сам визначаєш tools в коді кожного запиту, і лише твій застосунок їх використовує. MCP — стандартний протокол: tools визначені в окремому сервері, і будь-який MCP-сумісний хост (Claude Desktop, Cursor, твій застосунок) може їх підключити без дублювання коду.'
+  },
+  {
+    topic: 'mcp',
+    q: 'Що таке MCP Host, Client і Server?',
+    a: 'Host — застосунок що запускає AI і керує підключеннями (Claude Desktop, Cursor). Client — вбудований в host компонент що спілкується з серверами по протоколу. Server — окремий процес що надає Tools, Resources або Prompts. Один host може підключатись до кількох серверів.'
+  },
+  {
+    topic: 'mcp',
+    q: 'What transport protocols does MCP support?',
+    a: 'Two: stdio for local servers (host spawns a subprocess and communicates via stdin/stdout — simple and secure) and HTTP with SSE for remote servers (needed for cloud deployments where multiple users connect simultaneously).'
+  },
+  {
+    topic: 'mcp',
+    q: 'Коли варто писати MCP сервер замість звичайного function calling?',
+    a: 'Коли tool потрібен в кількох різних AI застосунках, або коли хочеш підключити стандартний сервіс і є готовий MCP сервер для нього. Для бізнес-логіки специфічної для одного застосунку — function calling простіший і достатній.'
+  },
+  {
+    topic: 'mcp',
+    q: 'Що надає MCP сервер — три типи примітивів?',
+    a: 'Tools — функції що модель може викликати (як function calling). Resources — дані для читання без side effects (файли, БД записи, URL). Prompts — готові шаблони промптів з параметрами що з\'являються як команди в UI хоста.'
+  },
+  // MCP ARCHITECTURE
+  {
+    topic: 'mcp_arch',
+    q: 'What are the three primitive types an MCP server can expose?',
+    a: 'Tools — callable functions with side effects (like function calling). Resources — read-only data identified by URI (files, DB records). Prompts — parameterized message templates that appear as slash commands or shortcuts in the host UI.'
+  },
+  {
+    topic: 'mcp_arch',
+    q: 'Яка різниця між stdio і HTTP транспортом у MCP?',
+    a: 'stdio — хост запускає сервер як дочірній процес і спілкується через stdin/stdout. Простий, безпечний, без мережевого порту, лише локально. HTTP/SSE — сервер доступний по мережі, кілька клієнтів одночасно, але потрібна авторизація і складніше налаштування.'
+  },
+  {
+    topic: 'mcp_arch',
+    q: 'Чому не можна використовувати `console.log` в stdio MCP сервері?',
+    a: 'Протокол MCP по stdio використовує stdout для JSON-RPC повідомлень. Будь-який `console.log` іде в stdout і корумпує потік протоколу — клієнт не може розпарсити відповідь. Для логів треба `console.error` (stderr).'
+  },
+  {
+    topic: 'mcp_arch',
+    q: 'How does the capability negotiation work in MCP?',
+    a: 'During initialization, the client sends its supported capabilities. The server responds with its capabilities (e.g., tools, resources). Both sides then know what the other can do. The sequence: Client → initialize → Server → result → Client → notifications/initialized → ready.'
+  },
+  {
+    topic: 'mcp_arch',
+    q: 'Чим Tools відрізняються від Resources в MCP?',
+    a: 'Tools — виконують операції з side effects (Claude вирішує коли викликати). Resources — лише читання, без side effects (Host може завантажити як контекст). Аналог: Tools = POST/PUT/DELETE API, Resources = GET API або файл.'
+  },
+  // TOOL PRACTICE
+  {
+    topic: 'tool_practice',
+    q: 'Walk me through implementing a tool from scratch.',
+    a: 'Define the tool object with `name`, `description`, and `input_schema`. Pass it in `tools`. After the request, check `stop_reason === "tool_use"`, filter `content` for `tool_use` blocks, cast `block.input`, execute the function, return a `tool_result` with the same `tool_use_id`. Add both assistant turn and results to `messages`, then repeat until `end_turn`.'
+  },
+  {
+    topic: 'tool_practice',
+    q: 'Чому `block.input` має тип `unknown` і як з цим працювати?',
+    a: 'SDK не знає яку схему ти описав в `input_schema` — тому тип `unknown` для безпеки. Рішення: type assertion `block.input as { city: string }`. В продакшені — валідація через `zod` перед використанням.'
+  },
+  {
+    topic: 'tool_practice',
+    q: 'Чому `tool_result.content` має бути string, а не об\'єкт?',
+    a: 'API очікує string. Якщо передати об\'єкт напряму — SDK може прийняти, але модель отримає "[object Object]". Завжди серіалізуй: `content: JSON.stringify({ temperature: 22 })`.'
+  },
+  {
+    topic: 'tool_practice',
+    q: 'Правила ретраю при помилках Anthropic SDK — які класи помилок retryable?',
+    a: 'RateLimitError (429), InternalServerError (500), APIConnectionError (network timeout) → exponential backoff (1s, 2s, 4s). BadRequestError (400) і AuthenticationError (401) → не ретраї, фікс в коді. Затримки: Math.pow(2, attempt) * 1000 ms.'
+  },
+  {
+    topic: 'tool_practice',
+    q: 'Чому весь `response.content` іде в history, а не тільки tool_use блоки?',
+    a: 'Відповідь може містити і text блоки і tool_use блоки в одному turn-і. Якщо додати в history лише tool_use — text блоки втрачаються і модель плутається. Завжди: `messages.push({ role: "assistant", content: response.content })`.'
   },
 ];
 
@@ -1367,6 +1741,274 @@ const QUIZ = [
     ],
     correct: 1
   },
+  // FUNCTION CALLING
+  {
+    topic: 'function',
+    q: 'Claude повертає stop_reason "tool_use" — що треба зробити далі?',
+    options: [
+      'Вивести відповідь користувачу як є',
+      'Виконати функцію і відправити tool_result в наступному запиті',
+      'Відправити той самий запит ще раз',
+      'Збільшити max_tokens і повторити'
+    ],
+    correct: 1
+  },
+  {
+    topic: 'function',
+    q: 'Яке поле tool schema найважливіше для правильного вибору Claude?',
+    options: ['name', 'description', 'input_schema.required', 'input_schema.type'],
+    correct: 1
+  },
+  {
+    topic: 'function',
+    q: 'tool_choice: { type: "tool", name: "X" } — що це гарантує?',
+    options: [
+      'Модель поверне відповідь лише якщо tool X існує',
+      'Модель обов\'язково викличе tool X і заповнить схему — guaranteed structured output',
+      'Модель виконає tool X сама без твого коду',
+      'Tool X буде першим у списку tools'
+    ],
+    correct: 1
+  },
+  {
+    topic: 'function',
+    q: 'Паралельні tool calls — як відправити результати?',
+    options: [
+      'Кожен результат окремим user повідомленням',
+      'Всі результати в одному user повідомленні масивом tool_result блоків',
+      'Всі результати в одному assistant повідомленні',
+      'Через окремий endpoint /tool-results'
+    ],
+    correct: 1
+  },
+  // AGENTS
+  {
+    topic: 'agents',
+    q: 'Агент = ?',
+    options: [
+      'LLM що відповідає на одне питання за раз',
+      'LLM + Tools + Loop (виконує goal через багато кроків)',
+      'Окремий мікросервіс з власною моделлю',
+      'Claude з розширеним context window'
+    ],
+    correct: 1
+  },
+  {
+    topic: 'agents',
+    q: 'Яке значення MAX_ITERATIONS рекомендується для простих агентів (lookup)?',
+    options: ['1–3', '5–10', '50–100', '1000'],
+    correct: 1
+  },
+  {
+    topic: 'agents',
+    q: 'ReAct pattern — що означає скорочення?',
+    options: [
+      'Remote Execution and Coordination Tasks',
+      'Reasoning + Acting — чергування роздумів і дій',
+      'Retrieval Enhanced Agentic Context',
+      'Recursive Evaluation and Correction Tasks'
+    ],
+    correct: 1
+  },
+  {
+    topic: 'agents',
+    q: 'In-context vs External memory — що персистентне між сесіями?',
+    options: [
+      'In-context (messages[])',
+      'External (DB / vector store)',
+      'Обидва однаково',
+      'Жоден — пам\'ять скидається після кожної відповіді'
+    ],
+    correct: 1
+  },
+  // AGENT PATTERNS
+  {
+    topic: 'agent_patterns',
+    q: 'Який патерн найпростіший і підходить для 1–5 кроків?',
+    options: [
+      'Multi-agent system',
+      'Tool-using agent (single LLM in loop)',
+      'Orchestrator pattern',
+      'Prompt chaining'
+    ],
+    correct: 1
+  },
+  {
+    topic: 'agent_patterns',
+    q: '"Gate" у prompt chaining — навіщо?',
+    options: [
+      'Щоб зупинити агента після кожного кроку для економії токенів',
+      'Валідація виводу між кроками — щоб помилка кроку 2 не ламала кроки 3–5',
+      'Паралельне виконання незалежних кроків',
+      'Обмеження доступу до певних tools'
+    ],
+    correct: 1
+  },
+  {
+    topic: 'agent_patterns',
+    q: 'Коли Multi-agent дорожчий за tool-using agent?',
+    options: [
+      'Завжди однаково',
+      'Multi-agent = N × M calls (агентів × ітерацій кожного) vs N calls одного агента',
+      'Multi-agent дешевший завдяки паралельності',
+      'Залежить від розміру context window'
+    ],
+    correct: 1
+  },
+  {
+    topic: 'agent_patterns',
+    q: 'Orchestrator vs Multi-agent — у чого є власний agentic loop?',
+    options: [
+      'У обох',
+      'Лише у Multi-agent (кожен агент незалежний)',
+      'Лише у Orchestrator (workers — пасивні)',
+      'У жодного — loop тільки в зовнішньому коді'
+    ],
+    correct: 1
+  },
+  // AGENT SAFETY
+  {
+    topic: 'agent_safety',
+    q: 'Три шари захисту агента від нескінченного циклу?',
+    options: [
+      'try/catch + logging + rate limiting',
+      'MAX_ITERATIONS + detectLoop() + COST_LIMIT_USD',
+      'timeout + memory limit + CPU quota',
+      'unit tests + integration tests + monitoring'
+    ],
+    correct: 1
+  },
+  {
+    topic: 'agent_safety',
+    q: 'Коли обов\'язково потрібен Human in the Loop?',
+    options: [
+      'При кожному tool call для безпеки',
+      'Для незворотних дій: відправка листів, видалення даних, фінансові транзакції',
+      'Лише при помилках агента',
+      'Тільки в development середовищі'
+    ],
+    correct: 1
+  },
+  {
+    topic: 'agent_safety',
+    q: 'Tool кидає exception в agent loop — як правильно обробити?',
+    options: [
+      'Дати exception спливти і зупинити весь loop',
+      'Спіймати і повернути як tool_result з is_error: true + опис',
+      'Ігнорувати помилку і продовжити loop',
+      'Перезапустити весь agent run з початку'
+    ],
+    correct: 1
+  },
+  // MCP
+  {
+    topic: 'mcp',
+    q: 'MCP вирішує яку проблему?',
+    options: [
+      'Повільну генерацію токенів у великих моделях',
+      'N×M дублювання інтеграцій — кожен AI хост мусить окремо підключати кожен сервіс',
+      'Відсутність пам\'яті між сесіями',
+      'Обмеження context window'
+    ],
+    correct: 1
+  },
+  {
+    topic: 'mcp',
+    q: 'MCP транспорт stdio — де виконується сервер?',
+    options: [
+      'В хмарі Anthropic',
+      'Як локальний дочірній процес, спілкується через stdin/stdout',
+      'В браузері як Web Worker',
+      'Як Docker контейнер на порту 8080'
+    ],
+    correct: 1
+  },
+  {
+    topic: 'mcp',
+    q: 'Хто створив MCP і коли?',
+    options: [
+      'OpenAI, 2023',
+      'Anthropic, листопад 2024',
+      'Google DeepMind, 2024',
+      'Microsoft, 2023'
+    ],
+    correct: 1
+  },
+  {
+    topic: 'mcp',
+    q: 'Коли краще function calling ніж MCP?',
+    options: [
+      'Коли потрібна максимальна продуктивність',
+      'Коли логіка специфічна для одного застосунку і не потрібно шерити',
+      'Завжди — MCP застарілий підхід',
+      'Коли використовуєш Claude Desktop'
+    ],
+    correct: 1
+  },
+  // MCP ARCHITECTURE
+  {
+    topic: 'mcp_arch',
+    q: 'MCP сервер надає три типи примітивів. Який виконує дії з side effects?',
+    options: ['Resources', 'Prompts', 'Tools', 'Handlers'],
+    correct: 2
+  },
+  {
+    topic: 'mcp_arch',
+    q: 'Чому `console.log` ламає stdio MCP сервер?',
+    options: [
+      'console.log занадто повільний для real-time протоколу',
+      'stdout зайнятий JSON-RPC — будь-який log корумпує протокол',
+      'Node.js не підтримує console.log в child processes',
+      'MCP SDK перехоплює console.log і блокує його'
+    ],
+    correct: 1
+  },
+  {
+    topic: 'mcp_arch',
+    q: 'MCP capability negotiation — хто ініціює з\'єднання?',
+    options: [
+      'Server ініціює підключення до host',
+      'Client (всередині host) ініціює — server лише відповідає',
+      'Обидва одночасно через handshake',
+      'Зовнішній координатор ініціює обидва'
+    ],
+    correct: 1
+  },
+  // TOOL PRACTICE
+  {
+    topic: 'tool_practice',
+    q: 'Мінімальний набір кроків для реалізації tool — скільки кроків?',
+    options: ['3 кроки', '7 кроків', '10 кроків', '2 кроки'],
+    correct: 1
+  },
+  {
+    topic: 'tool_practice',
+    q: 'block.input в TypeScript — який тип?',
+    options: ['string', 'unknown (потребує type assertion)', 'Record<string,string>', 'JSON'],
+    correct: 1
+  },
+  {
+    topic: 'tool_practice',
+    q: 'Яка помилка SDK НЕ є retryable (не варто ретраїти)?',
+    options: [
+      'RateLimitError (429)',
+      'InternalServerError (500)',
+      'AuthenticationError (401)',
+      'APIConnectionError'
+    ],
+    correct: 2
+  },
+  {
+    topic: 'tool_practice',
+    q: 'tool_result.content — який тип обов\'язковий?',
+    options: [
+      'object або string',
+      'string (JSON.stringify якщо об\'єкт)',
+      'Buffer або string',
+      'number або string'
+    ],
+    correct: 1
+  },
 ];
 
 // ══════════════════════════════════════════════════════
@@ -1374,13 +2016,20 @@ const QUIZ = [
 // ══════════════════════════════════════════════════════
 
 const TOPIC_META = {
-  tokens:     { label: 'Tokens',           cls: 'badge-tokens' },
-  generation: { label: 'Generation',       cls: 'badge-generation' },
-  context:    { label: 'Context Window',   cls: 'badge-context' },
-  system:     { label: 'System Prompt',    cls: 'badge-system' },
-  prompting:  { label: 'Prompting',        cls: 'badge-prompting' },
-  structured: { label: 'Structured Output',cls: 'badge-structured' },
-  eval:       { label: 'Prompt Eval',      cls: 'badge-eval' },
+  tokens:        { label: 'Tokens',           cls: 'badge-tokens' },
+  generation:    { label: 'Generation',       cls: 'badge-generation' },
+  context:       { label: 'Context Window',   cls: 'badge-context' },
+  system:        { label: 'System Prompt',    cls: 'badge-system' },
+  prompting:     { label: 'Prompting',        cls: 'badge-prompting' },
+  structured:    { label: 'Structured Output',cls: 'badge-structured' },
+  eval:          { label: 'Prompt Eval',      cls: 'badge-eval' },
+  function:      { label: 'Function Calling', cls: 'badge-function' },
+  agents:        { label: 'Agents',           cls: 'badge-agents' },
+  agent_patterns:{ label: 'Agent Patterns',   cls: 'badge-agent_patterns' },
+  agent_safety:  { label: 'Agent Safety',     cls: 'badge-agent_safety' },
+  mcp:           { label: 'MCP',              cls: 'badge-mcp' },
+  mcp_arch:      { label: 'MCP Architecture', cls: 'badge-mcp_arch' },
+  tool_practice: { label: 'Tool Practice',    cls: 'badge-tool_practice' },
 };
 
 let fcDeck    = [];
