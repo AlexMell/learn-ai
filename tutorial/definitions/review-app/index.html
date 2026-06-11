@@ -114,6 +114,8 @@
   .badge-mcp             { background: rgba(59,130,246,0.15);  color: #93c5fd; }
   .badge-mcp_arch        { background: rgba(16,185,129,0.15);  color: #6ee7b7; }
   .badge-tool_practice   { background: rgba(249,115,22,0.15);  color: #fdba74; }
+  .badge-message_batches { background: rgba(99,102,241,0.15);  color: #818cf8; }
+  .badge-rag             { background: rgba(34,197,94,0.15);   color: #4ade80; }
 
   /* ══════════════════════════════
      FLASHCARDS
@@ -591,6 +593,8 @@
         <button class="filter-btn" onclick="setFilter('mcp', this)">MCP</button>
         <button class="filter-btn" onclick="setFilter('mcp_arch', this)">MCP Architecture</button>
         <button class="filter-btn" onclick="setFilter('tool_practice', this)">Tool Practice</button>
+        <button class="filter-btn" onclick="setFilter('message_batches', this)">Message Batches</button>
+        <button class="filter-btn" onclick="setFilter('rag', this)">RAG</button>
       </div>
       <div class="fc-progress">
         Залишилось: <span id="fc-remaining">0</span> / <span id="fc-total">0</span>
@@ -1054,6 +1058,64 @@
       </table>
     </div>
 
+    <div class="cheat-section">
+      <h2><span class="badge badge-message_batches">Message Batches</span> Ключові числа</h2>
+      <table class="cheat-table">
+        <thead><tr><th>Параметр</th><th>Значення</th></tr></thead>
+        <tbody>
+          <tr><td>Макс. запитів / batch</td><td>100 000</td></tr>
+          <tr><td>Макс. розмір batch</td><td>256 MB</td></tr>
+          <tr><td>Deadline обробки</td><td>24 год (зазвичай &lt; 1 год)</td></tr>
+          <tr><td>Зниження ціни</td><td>50% від стандартної</td></tr>
+          <tr><td>Зберігання результатів</td><td>29 днів</td></tr>
+          <tr><td>Polling інтервал</td><td>30–60 сек (малий), 5 хв (великий)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="cheat-section" style="margin-top:20px">
+      <h2><span class="badge badge-message_batches">Message Batches</span> Статуси та типи результатів</h2>
+      <table class="cheat-table">
+        <thead><tr><th>Статус / тип</th><th>Що означає</th><th>Дія</th></tr></thead>
+        <tbody>
+          <tr><td>in_progress</td><td>Batch ще обробляється</td><td>Продовжуй polling</td></tr>
+          <tr><td>ended</td><td>Batch завершено (не = всі succeeded!)</td><td>Читай результати</td></tr>
+          <tr><td>succeeded</td><td>Запит виконано успішно</td><td>Обробити відповідь</td></tr>
+          <tr><td>errored / invalid_request</td><td>Твоя помилка в params</td><td>Виправити і переподати</td></tr>
+          <tr><td>errored / api_error</td><td>Збій на стороні Anthropic</td><td>Переподати як є</td></tr>
+          <tr><td>expired</td><td>Не оброблено за 24 год</td><td>Переподати запит</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="cheat-section">
+      <h2><span class="badge badge-rag">RAG</span> Поріг вибору підходу</h2>
+      <table class="cheat-table">
+        <thead><tr><th>Обсяг документів</th><th>Підхід</th></tr></thead>
+        <tbody>
+          <tr><td>&lt; 50k токенів</td><td>Context stuffing (простіше)</td></tr>
+          <tr><td>50k–500k токенів</td><td>RAG або prompt caching</td></tr>
+          <tr><td>&gt; 500k токенів</td><td>RAG обов'язково</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="cheat-section" style="margin-top:20px">
+      <h2><span class="badge badge-rag">RAG</span> Chunking та Cosine similarity</h2>
+      <table class="cheat-table">
+        <thead><tr><th>Параметр</th><th>Значення</th></tr></thead>
+        <tbody>
+          <tr><td>Оптимум chunk</td><td>300–500 токенів</td></tr>
+          <tr><td>Overlap</td><td>50–100 токенів</td></tr>
+          <tr><td>Cosine 1.0</td><td>Ідентичні тексти</td></tr>
+          <tr><td>Cosine 0.9+</td><td>Дуже схожі</td></tr>
+          <tr><td>Cosine 0.7+</td><td>Достатньо для retrieval</td></tr>
+          <tr><td>Cosine 0.5-</td><td>Несхожі теми</td></tr>
+          <tr><td>Embedding model</td><td>Voyage AI (рекомендовано Anthropic)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
   </div>
 </main>
 
@@ -1476,6 +1538,63 @@ const CARDS = [
     topic: 'tool_practice',
     q: 'Чому весь `response.content` іде в history, а не тільки tool_use блоки?',
     a: 'Відповідь може містити і text блоки і tool_use блоки в одному turn-і. Якщо додати в history лише tool_use — text блоки втрачаються і модель плутається. Завжди: `messages.push({ role: "assistant", content: response.content })`.'
+  },
+  // MESSAGE BATCHES
+  {
+    topic: 'message_batches',
+    q: 'What is the main trade-off of the Message Batches API?',
+    a: '50% cost reduction in exchange for latency — results arrive within 24 hours (typically under 1 hour). There is no guarantee on response time. Right for bulk/offline workloads; wrong for anything user-facing that needs an immediate response.'
+  },
+  {
+    topic: 'message_batches',
+    q: 'Як виявити що batch завершився? Чому немає webhook?',
+    a: 'Тільки polling: `client.messages.batches.retrieve(id)` — перевіряти `processing_status === "ended"`. Webhook API відсутній. Типовий інтервал: 30–60 секунд (малий batch), 5 хвилин (великий batch).'
+  },
+  {
+    topic: 'message_batches',
+    q: 'Що означає `processing_status === "ended"` — всі запити succeeded?',
+    a: 'Ні. "ended" означає що batch завершив обробку, але частина запитів могла завершитись як `errored` або `expired`. Завжди перевіряй `request_counts.errored` після завершення.'
+  },
+  {
+    topic: 'message_batches',
+    q: 'Чому `custom_id` критично важливий в Batches API?',
+    a: 'Результати повертаються не в порядку запитів — єдиний спосіб зіставити відповідь з вхідними даними це `custom_id`. Без нього неможливо визначити якому запиту відповідає той чи інший результат.'
+  },
+  {
+    topic: 'message_batches',
+    q: 'Яка різниця між `errored` типами: `invalid_request` vs `api_error`?',
+    a: '`invalid_request` — твоя помилка (неправильні params). Виправ і переподай. `api_error` — збій на стороні Anthropic. Можна безпечно переподати той самий запит без змін.'
+  },
+  {
+    topic: 'message_batches',
+    q: 'Скільки запитів в одному batch і скільки зберігаються результати?',
+    a: 'До 100 000 запитів або 256 MB на один batch. Результати зберігаються 29 днів — після цього зникають назавжди. Зберігай одразу після завершення.'
+  },
+  // RAG
+  {
+    topic: 'rag',
+    q: 'What is RAG and why is it better than putting everything in the context window?',
+    a: 'RAG retrieves only the relevant document chunks at query time instead of stuffing everything into context. Benefits: your knowledge base may exceed any context window; data changes over time while a stuffed context is static; with many users, each request is cheaper because you inject only 3–5 relevant chunks instead of the full corpus.'
+  },
+  {
+    topic: 'rag',
+    q: 'Що таке embedding і чому схожі тексти мають близькі вектори?',
+    a: 'Embedding — числовий вектор де семантична схожість = геометрична близькість. Моделі натреновані на парах "схожих" і "несхожих" текстів. Cosine similarity вимірює цю близькість: 0.9+ = дуже схожі, 0.7+ = достатньо для retrieval, 0.5- = різні теми.'
+  },
+  {
+    topic: 'rag',
+    q: 'Anthropic не має embedding model — як робити RAG з Claude?',
+    a: 'Anthropic рекомендує Voyage AI — спеціалізовані retrieval embeddings. Альтернативи: OpenAI `text-embedding-3-small` (дешевий), або локальні моделі через sentence-transformers. Claude — тільки generation крок. Embedding — окрема модель і API.'
+  },
+  {
+    topic: 'rag',
+    q: 'Коли RAG не потрібен?',
+    a: 'Коли документів мало (< 50k токенів) — простіше передати все в context window. Коли дані статичні — system prompt або hardcode. Коли потрібен актуальний веб-пошук — tool use з search API. Коли задача не потребує зовнішніх знань.'
+  },
+  {
+    topic: 'rag',
+    q: 'Який оптимальний розмір chunk і чому overlap важливий?',
+    a: '300–500 токенів з 50–100 overlap. Занадто малий chunk (< 100 токенів) — втрачається контекст. Занадто великий (> 1000) — релевантна інформація "розбавляється". Overlap запобігає втраті інформації на межах chunks.'
   },
 ];
 
@@ -2009,6 +2128,61 @@ const QUIZ = [
     ],
     correct: 1
   },
+  // MESSAGE BATCHES
+  {
+    topic: 'message_batches',
+    q: 'Яка знижка на вартість при використанні Batches API?',
+    options: ['25%', '33%', '50%', '75%'],
+    correct: 2
+  },
+  {
+    topic: 'message_batches',
+    q: 'Скільки максимум запитів в одному batch?',
+    options: ['1 000', '10 000', '100 000', '1 000 000'],
+    correct: 2
+  },
+  {
+    topic: 'message_batches',
+    q: 'Як дізнатись що batch завершився?',
+    options: [
+      'Webhook автоматично надсилається на callback URL',
+      'Polling: retrieve(id) → processing_status === "ended"',
+      'SDK кидає event коли batch готовий',
+      'Email приходить на зареєстровану адресу'
+    ],
+    correct: 1
+  },
+  {
+    topic: 'message_batches',
+    q: 'Скільки днів зберігаються результати batch?',
+    options: ['7 днів', '14 днів', '29 днів', '90 днів'],
+    correct: 2
+  },
+  // RAG
+  {
+    topic: 'rag',
+    q: 'Який оптимальний розмір chunk для RAG?',
+    options: ['50–100 токенів', '300–500 токенів', '1000–2000 токенів', '5000+ токенів'],
+    correct: 1
+  },
+  {
+    topic: 'rag',
+    q: 'При якому обсязі документів context stuffing кращий за RAG?',
+    options: ['< 10k токенів', '< 50k токенів', '< 200k токенів', '< 500k токенів'],
+    correct: 1
+  },
+  {
+    topic: 'rag',
+    q: 'Яку embedding модель рекомендує Anthropic для RAG з Claude?',
+    options: ['Claude Haiku (вбудована)', 'Voyage AI', 'OpenAI Ada', 'Google PaLM Embeddings'],
+    correct: 1
+  },
+  {
+    topic: 'rag',
+    q: 'Що вимірює cosine similarity = 0.9+?',
+    options: ['Ідентичні тексти', 'Дуже схожі тексти', 'Схожі теми', 'Несхожі тексти'],
+    correct: 1
+  },
 ];
 
 // ══════════════════════════════════════════════════════
@@ -2029,7 +2203,9 @@ const TOPIC_META = {
   agent_safety:  { label: 'Agent Safety',     cls: 'badge-agent_safety' },
   mcp:           { label: 'MCP',              cls: 'badge-mcp' },
   mcp_arch:      { label: 'MCP Architecture', cls: 'badge-mcp_arch' },
-  tool_practice: { label: 'Tool Practice',    cls: 'badge-tool_practice' },
+  tool_practice:   { label: 'Tool Practice',    cls: 'badge-tool_practice' },
+  message_batches: { label: 'Message Batches', cls: 'badge-message_batches' },
+  rag:             { label: 'RAG',             cls: 'badge-rag' },
 };
 
 let fcDeck    = [];
